@@ -52,7 +52,9 @@
       "Bash(/opt/homebrew/opt/postgresql@15/bin/psql *)",
       "Bash(composer remove *)",
       "Bash(composer require *)",
-      "Bash(git commit -q -m 'Fase 1: schema completo multi-tenant — enums, migrations, models, factories, seeds *)"
+      "Bash(git commit -q -m 'Fase 1: schema completo multi-tenant — enums, migrations, models, factories, seeds *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)"
     ]
   }
 }
