@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+.venv/
+.scratch/

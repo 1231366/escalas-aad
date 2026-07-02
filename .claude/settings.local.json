@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py \"healthcare shift scheduling operations dashboard SaaS\" --design-system -p \"Escalas AAD\")",
+      "Bash(python3 *)",
+      "Bash(node --check /tmp/check.js)",
+      "Read(//private/tmp/claude-501/bundled-skills/2.1.197/**)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(node -e \"require.resolve\\('playwright'\\)\")",
+      "Bash(npm ls *)",
+      "Bash(npx --yes -p playwright node -e \"console.log\\('playwright resolvable via npx'\\)\")",
+      "Bash(mkdir -p /private/tmp/claude-501/-Users-t-Desktop-escalas-aad/a04639ef-1c70-4c09-9f57-369c28de168c/scratchpad)",
+      "Bash(npx --yes -p playwright playwright install chromium --with-deps)",
+      "Bash(mkdir -p ~/.claude/repos)",
+      "Bash(rm -rf ~/.claude/repos/mattpocock-skills)",
+      "Bash(git clone *)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(mkdir -p docs/agents docs/adr)",
+      "Bash(chmod +x /Users/t/Desktop/escalas-aad/scripts/github-setup.sh)",
+      "Bash(bash -n /Users/t/Desktop/escalas-aad/scripts/github-setup.sh)"
+    ]
+  }
+}

@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E7C7B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Escalas AAD — Protótipo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Bricolage Grotesque"', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+      },
+      colors: {
+        ink:     '#151A26',
+        teal:    '#0E7C7B',
+        tealdk:  '#0A5F5E',
+        teallt:  '#14B8A6',
+        turnoM:  '#B45309',
+        turnoMbg:'#FEF3C7',
+        turnoT:  '#9A3412',
+        turnoTbg:'#FFE4D2',
+        turnoN:  '#3730A3',
+        turnoNbg:'#E0E7FF',
+        folga:   '#EEF0F4',
+        canvas:  '#F7F8FA',
+        edge:    '#E7E9EE',
+      }
+    }
+  }
+}
+</script>
+<style>
+  html, body { min-height: 100dvh; }
+  body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  .nums { font-variant-numeric: tabular-nums; }
+  .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #D8DBE2; border-radius: 8px; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .cell { transition: transform .12s ease, box-shadow .12s ease; }
+  .cell:hover { transform: scale(1.15); z-index: 5; box-shadow: 0 4px 10px rgba(0,0,0,.18); }
+  .view-enter { animation: viewIn .28s cubic-bezier(.16,1,.3,1) both; }
+  @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .tab-active-desktop { background: linear-gradient(135deg,#0E7C7B,#0A5F5E); color: #fff; box-shadow: 0 6px 16px -4px rgba(14,124,123,.45); }
+  .mnav-active { color: #0E7C7B; }
+  .mnav-active .mnav-pill { background: rgba(14,124,123,.12); }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body class="font-sans text-ink bg-canvas">
+
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   MODELO DE DADOS (em memória — protótipo)
+   ============================================================ */
+const SHIFTS = {
+  M: { code:'M', nome:'Manhã',  horas:'08–16', cls:'bg-turnoMbg text-turnoM', solid:'bg-turnoM' },
+  T: { code:'T', nome:'Tarde',  horas:'16–00', cls:'bg-turnoTbg text-turnoT', solid:'bg-turnoT' },
+  N: { code:'N', nome:'Noite',  horas:'00–08', cls:'bg-turnoNbg text-turnoN', solid:'bg-turnoN' },
+  F: { code:'F', nome:'Folga',  horas:'—',     cls:'bg-folga text-gray-400',  solid:'bg-gray-200' },
+};
+const COVERAGE = { M:4, T:3, N:2 };   // AAD por turno / dia
+const MAX_CONSEC = 6;                  // dias de trabalho seguidos
+
+// 12 funcionárias — 4 dedicadas à noite (2 fixas + 2), 8 ao dia
+const EMPLOYEES = [
+  { id:1,  nome:'Ana Sousa',      pool:'noite', fixaNoite:true,  contrato:'40h'   },
+  { id:2,  nome:'Beatriz Lopes',  pool:'noite', fixaNoite:true,  contrato:'40h'   },
+  { id:3,  nome:'Carla Mendes',   pool:'noite', fixaNoite:false, contrato:'37h30' },
+  { id:4,  nome:'Diana Rocha',    pool:'noite', fixaNoite:false, contrato:'37h30' },
+  { id:5,  nome:'Eva Martins',    pool:'dia',   fixaNoite:false, contrato:'40h'   },
+  { id:6,  nome:'Filipa Costa',   pool:'dia',   fixaNoite:false, contrato:'40h'   },
+  { id:7,  nome:'Gabriela Nunes', pool:'dia',   fixaNoite:false, contrato:'40h'   },
+  { id:8,  nome:'Helena Dias',    pool:'dia',   fixaNoite:false, contrato:'37h30' },
+  { id:9,  nome:'Inês Faria',     pool:'dia',   fixaNoite:false, contrato:'40h'   },
+  { id:10, nome:'Joana Pinto',    pool:'dia',   fixaNoite:false, contrato:'37h30' },
+  { id:11, nome:'Luísa Ramos',    pool:'dia',   fixaNoite:false, contrato:'40h'   },
+  { id:12, nome:'Marta Silva',    pool:'dia',   fixaNoite:false, contrato:'37h30' },
+];
+
+// Matriz de descanso (11h): ontem -> hoje permitido?
+const REST_OK = {
+  M: { M:true,  T:true,  N:false, F:true },
+  T: { M:false, T:true,  N:false, F:true },
+  N: { M:false, T:false, N:true,  F:true },
+  F: { M:true,  T:true,  N:true,  F:true },
+};
+
+const DIAS_SEM = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const state = {
+  view: 'login',        // login | admin | employee
+  adminTab: 'painel',   // painel | funcionarias | regras | escalas | pedidos
+  empTab: 'horario',    // horario | troca | ferias
+  currentEmp: 5,        // funcionária logada (demo)
+  periodo: 28,          // dias gerados
+  allowOvertime: true,
+  seed: 42,
+  grid: null,           // grid[empId] = ['M','F',...]
+  validation: null,
+  adminWeek: 0,          // paginação da agenda mobile
+  invites: [
+    { email:'ana.sousa@lar.pt',    estado:'Registada' },
+    { email:'novo.aad@lar.pt',     estado:'Pendente'  },
+  ],
+  swaps: [
+    { de:'Eva Martins', para:'Filipa Costa', dia:5, estado:'Pendente' },
+  ],
+  ferias: [
+    { emp:'Joana Pinto', inicio:12, fim:18, estado:'Pendente' },
+  ],
+};
+
+/* ============================================================
+   PRNG com seed (geração reproduzível)
+   ============================================================ */
+function makeRng(seed){
+  let s = seed >>> 0;
+  return () => { s = (s*1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+/* ============================================================
+   GERADOR DE ESCALAS (greedy + restrições)
+   ============================================================ */
+function generateSchedule(){
+  const rng = makeRng(state.seed);
+  const days = state.periodo;
+  const emps = EMPLOYEES;
+  const grid = {};
+  emps.forEach(e => grid[e.id] = []);
+
+  const nightPool = emps.filter(e => e.pool === 'noite');
+  const dayPool   = emps.filter(e => e.pool === 'dia');
+
+  const prev = (e,d) => d === 0 ? 'F' : grid[e.id][d-1];
+  const consec = (e,d) => { let c=0; for(let i=d-1;i>=0;i--){ if(grid[e.id][i]!=='F') c++; else break; } return c; };
+  const sameStreak = (e,d,s) => { let c=0; for(let i=d-1;i>=0;i--){ if(grid[e.id][i]===s) c++; else break; } return c; };
+  const load = (e) => grid[e.id].filter(t=>t!=='F').length;
+
+  for(let d=0; d<days; d++){
+    const assigned = {};
+
+    function pick(pool, shift, n){
+      let cands = pool.filter(e =>
+        !assigned[e.id] &&
+        REST_OK[prev(e,d)][shift] &&
+        consec(e,d) < MAX_CONSEC
+      );
+      // scoring: continuar o mesmo turno (padrão MMM/NNN) se streak<3, depois equidade de carga
+      cands.forEach(e => e._j = rng()); // desempate estável por seed
+      cands.sort((a,b) => {
+        const aCont = (prev(a,d)===shift && sameStreak(a,d,shift) < 3) ? 1 : 0;
+        const bCont = (prev(b,d)===shift && sameStreak(b,d,shift) < 3) ? 1 : 0;
+        if(aCont !== bCont) return bCont - aCont;
+        if(load(a) !== load(b)) return load(a) - load(b);
+        return a._j - b._j;
+      });
+      const chosen = cands.slice(0, n);
+      chosen.forEach(e => assigned[e.id] = shift);
+      return chosen.length;
+    }
+
+    // ordem: turno mais restritivo primeiro
+    pick(nightPool, 'N', COVERAGE.N);
+    pick(dayPool,   'T', COVERAGE.T);
+    pick(dayPool,   'M', COVERAGE.M);
+
+    emps.forEach(e => grid[e.id][d] = assigned[e.id] || 'F');
+  }
+
+  state.grid = grid;
+  state.validation = validateSchedule(grid, days);
+}
+
+/* ============================================================
+   VALIDADOR — verifica cada regra e devolve estado
+   ============================================================ */
+function validateSchedule(grid, days){
+  const emps = EMPLOYEES;
+  const rules = [];
+
+  // R1: cobertura exata por turno/dia
+  let coverBad = 0;
+  for(let d=0; d<days; d++){
+    const cnt = {M:0,T:0,N:0};
+    emps.forEach(e => { const t = grid[e.id][d]; if(t!=='F') cnt[t]++; });
+    if(cnt.M!==COVERAGE.M || cnt.T!==COVERAGE.T || cnt.N!==COVERAGE.N) coverBad++;
+  }
+  rules.push({ id:'R1', nome:'Cobertura 4M · 3T · 2N por dia',
+    ok: coverBad===0, detalhe: coverBad===0 ? 'Todos os dias cobertos' : `${coverBad} dia(s) sem cobertura completa` });
+
+  // R2: descanso 11h (transições)
+  let restBad = 0;
+  emps.forEach(e => {
+    for(let d=1; d<days; d++){
+      if(!REST_OK[grid[e.id][d-1]][grid[e.id][d]]) restBad++;
+    }
+  });
+  rules.push({ id:'R2', nome:'Descanso mínimo de 11h entre turnos',
+    ok: restBad===0, detalhe: restBad===0 ? 'Nenhuma transição ilegal' : `${restBad} transição(ões) ilegais` });
+
+  // R3: máx dias consecutivos
+  let consBad = 0;
+  emps.forEach(e => {
+    let c=0;
+    for(let d=0; d<days; d++){ if(grid[e.id][d]!=='F'){ c++; if(c>MAX_CONSEC) consBad++; } else c=0; }
+  });
+  rules.push({ id:'R3', nome:`Máximo ${MAX_CONSEC} dias de trabalho seguidos`,
+    ok: consBad===0, detalhe: consBad===0 ? 'Dentro do limite' : `${consBad} excesso(s)` });
+
+  // R4: Manhã e Noite não no mesmo mês (mesma pessoa)
+  let mixMN = 0;
+  emps.forEach(e => {
+    const temM = grid[e.id].includes('M');
+    const temN = grid[e.id].includes('N');
+    if(temM && temN) mixMN++;
+  });
+  rules.push({ id:'R4', nome:'Sem Manhã + Noite no mesmo mês (por pessoa)',
+    ok: mixMN===0, detalhe: mixMN===0 ? 'Pools separados' : `${mixMN} pessoa(s) com M e N` });
+
+  // R5: 2 fixas à noite
+  const fixas = emps.filter(e=>e.fixaNoite);
+  const fixasOk = fixas.every(e => grid[e.id].includes('N'));
+  rules.push({ id:'R5', nome:'2 funcionárias fixas à noite',
+    ok: fixasOk, detalhe: fixasOk ? `${fixas.map(f=>f.nome.split(' ')[0]).join(', ')}` : 'Falha nas fixas' });
+
+  // Horas por pessoa (semana) — deteta horas extra
+  const semanas = Math.floor(days/7);
+  let extra = 0;
+  const horasPorEmp = {};
+  emps.forEach(e => {
+    const turnos = grid[e.id].filter(t=>t!=='F').length;
+    const horas = turnos * 8;
+    const alvo = e.contrato==='40h' ? 40 : 37.5;
+    const mediaSemana = semanas>0 ? horas/semanas : horas;
+    horasPorEmp[e.id] = { turnos, horas, mediaSemana:mediaSemana.toFixed(1), alvo, extra: mediaSemana > alvo + 0.5 };
+    if(mediaSemana > alvo + 0.5) extra++;
+  });
+  rules.push({ id:'R6', nome:'Carga horária dentro do contrato',
+    ok: extra===0, warn: extra>0, detalhe: extra===0 ? 'Sem horas extra' : `${extra} pessoa(s) acima do contrato (horas extra)` });
+
+  return { rules, horasPorEmp };
+}
+
+/* ============================================================
+   HELPERS DE DATA (demo — começa numa segunda)
+   ============================================================ */
+function diaLabel(d){ return DIAS_SEM[d % 7]; }
+function isWeekend(d){ return (d % 7) >= 5; }
+
+/* ============================================================
+   ICONES (SVG inline — sem emojis)
+   ============================================================ */
+const ICONS = {
+  home: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>',
+  users: '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>',
+  shield: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>',
+  calendar: '<path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>',
+  inbox: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l5.159-5.159a2.25 2.25 0 011.591-.659h6c.597 0 1.169.237 1.591.659L21.75 12M2.25 12v6.75A2.25 2.25 0 004.5 21h15a2.25 2.25 0 002.25-2.25V12M2.25 12h5.379a1.5 1.5 0 011.06.44l.879.879a1.5 1.5 0 001.06.44h2.844a1.5 1.5 0 001.06-.44l.879-.879a1.5 1.5 0 011.06-.44H21.75"/>',
+  logout: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>',
+  swap: '<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h18M16.5 3L21 7.5m0 0L16.5 12M21 7.5H3"/>',
+  sun: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>',
+  chevronLeft: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>',
+  chevronRight: '<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>',
+  check: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+  xcircle: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+  warn: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>',
+  plus: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+  building: '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/>',
+  userCircle: '<path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/>',
+  mail: '<path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>',
+  bolt: '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>',
+  bell: '<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>',
+};
+function icon(name, cls){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="${cls||'w-5 h-5'}">${ICONS[name]||''}</svg>`; }
+function initials(nome){ return nome.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+function pendingCount(){ return state.swaps.filter(s=>s.estado==='Pendente').length + state.ferias.filter(f=>f.estado==='Pendente').length; }
+function employeesOnDay(d, code){ return EMPLOYEES.filter(e => state.grid[e.id][d]===code); }
+
+const ADMIN_TABS = [
+  ['painel','Painel','home'],
+  ['funcionarias','Equipa','users'],
+  ['regras','Regras','shield'],
+  ['escalas','Escalas','calendar'],
+  ['pedidos','Pedidos','inbox'],
+];
+const EMP_TABS = [
+  ['horario','Horário','calendar'],
+  ['troca','Trocas','swap'],
+  ['ferias','Férias','sun'],
+];
+
+function kpi(iconName, label, value, sub, warn){
+  return `<div class="rounded-2xl border shadow-sm p-3.5 md:p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 ${warn?'bg-amber-50 border-amber-200':'bg-white border-edge'}">
+    <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-teal/10 text-teal flex items-center justify-center mb-2 md:mb-3">${icon(iconName,'w-4 h-4 md:w-5 md:h-5')}</div>
+    <div class="text-[10px] md:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">${label}</div>
+    <div class="font-display font-extrabold text-xl md:text-3xl mt-0.5 nums leading-tight">${value}</div>
+    <div class="text-[11px] md:text-xs text-slate-500 mt-0.5">${sub}</div>
+  </div>`;
+}
+
+/* ============================================================
+   RENDER — LOGIN
+   ============================================================ */
+function renderLogin(){
+  return `
+  <div class="min-h-dvh flex items-center justify-center p-6 relative overflow-hidden bg-canvas">
+    <div aria-hidden="true" class="pointer-events-none absolute -top-24 -left-24 w-80 h-80 rounded-full bg-teal/20 blur-3xl"></div>
+    <div aria-hidden="true" class="pointer-events-none absolute -bottom-32 -right-16 w-96 h-96 rounded-full bg-turnoN/10 blur-3xl"></div>
+    <div class="w-full max-w-md relative view-enter">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-2.5 mb-3">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal to-teallt flex items-center justify-center text-white font-display font-extrabold text-xl shadow-lg shadow-teal/30">E</div>
+          <span class="font-display font-extrabold text-2xl tracking-tight">Escalas AAD</span>
+        </div>
+        <p class="text-slate-500 text-sm">Gestão de turnos para equipas de apoio direto</p>
+      </div>
+      <div class="bg-white rounded-3xl shadow-xl shadow-slate-900/5 border border-edge p-6 space-y-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Entrar como</p>
+        <button onclick="go('admin')" class="w-full flex items-center gap-3 p-4 rounded-2xl border border-edge hover:border-teal hover:bg-teal/5 transition text-left cursor-pointer">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style="background:linear-gradient(135deg,#0E1526,#141C33);">${icon('building','w-5 h-5')}</div>
+          <div>
+            <div class="font-semibold">Administração</div>
+            <div class="text-xs text-slate-500">Gerar escalas, gerir equipa e pedidos</div>
+          </div>
+        </button>
+        <button onclick="go('employee')" class="w-full flex items-center gap-3 p-4 rounded-2xl border border-edge hover:border-teal hover:bg-teal/5 transition text-left cursor-pointer">
+          <div class="w-11 h-11 rounded-xl bg-teal text-white flex items-center justify-center shrink-0">${icon('userCircle','w-5 h-5')}</div>
+          <div>
+            <div class="font-semibold">Funcionária</div>
+            <div class="text-xs text-slate-500">Ver o meu horário, trocas e férias</div>
+          </div>
+        </button>
+      </div>
+      <p class="text-center text-xs text-slate-400 mt-4">Protótipo · dados de demonstração</p>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   RENDER — SHELL ADMIN
+   ============================================================ */
+function renderAdmin(){
+  const nav = ADMIN_TABS.map(([k,l,ic]) =>
+    `<button onclick="setAdminTab('${k}')" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${state.adminTab===k?'tab-active-desktop':'text-slate-300 hover:bg-white/5 hover:text-white'}">
+      ${icon(ic,'w-5 h-5 shrink-0')}<span>${l}</span>
+    </button>`
+  ).join('');
+
+  let content = '';
+  if(state.adminTab==='painel')       content = renderPainel();
+  if(state.adminTab==='funcionarias') content = renderFuncionarias();
+  if(state.adminTab==='regras')       content = renderRegras();
+  if(state.adminTab==='escalas')      content = renderEscalas();
+  if(state.adminTab==='pedidos')      content = renderPedidos();
+
+  const title = ADMIN_TABS.find(t=>t[0]===state.adminTab)[1];
+  const pend = pendingCount();
+
+  return `
+  <div class="min-h-dvh md:flex bg-canvas">
+    <aside class="hidden md:flex w-64 shrink-0 flex-col p-4 text-white" style="background:linear-gradient(180deg,#0E1526,#141C33);">
+      <div class="flex items-center gap-2.5 mb-8 px-2 pt-1">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal to-teallt flex items-center justify-center font-display font-extrabold shadow-lg shadow-teal/30">E</div>
+        <div>
+          <div class="font-display font-bold leading-tight">Escalas AAD</div>
+          <div class="text-[11px] text-slate-400">Administração</div>
+        </div>
+      </div>
+      <nav class="flex flex-col gap-1 flex-1">${nav}</nav>
+      <div class="border-t border-white/10 pt-3 mt-3">
+        <button onclick="go('login')" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-slate-300 hover:bg-white/5 hover:text-white transition cursor-pointer">
+          ${icon('logout','w-5 h-5')}<span>Terminar sessão</span>
+        </button>
+      </div>
+    </aside>
+
+    <header class="md:hidden sticky top-0 z-30 pt-safe bg-white/85 backdrop-blur-md border-b border-edge">
+      <div class="flex items-center justify-between px-4 h-14">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-teal to-teallt flex items-center justify-center text-white font-display font-extrabold text-xs">E</div>
+          <span class="font-display font-bold text-lg">${title}</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button onclick="setAdminTab('pedidos')" class="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 cursor-pointer" aria-label="Pedidos pendentes">
+            ${icon('bell','w-5 h-5 text-slate-500')}
+            ${pend>0?`<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-turnoT"></span>`:''}
+          </button>
+          <button onclick="go('login')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 cursor-pointer" aria-label="Terminar sessão">${icon('logout','w-5 h-5 text-slate-500')}</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 min-w-0 pb-24 md:pb-10">
+      <div class="p-4 md:p-8 max-w-[1400px] mx-auto view-enter">${content}</div>
+    </main>
+
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-t border-edge pb-safe">
+      <div class="grid grid-cols-5">
+        ${ADMIN_TABS.map(([k,l,ic])=>`
+          <button onclick="setAdminTab('${k}')" class="flex flex-col items-center justify-center gap-1 py-2.5 min-h-[52px] cursor-pointer ${state.adminTab===k?'mnav-active':'text-slate-400'}">
+            <span class="mnav-pill flex items-center justify-center w-9 h-7 rounded-full">${icon(ic,'w-5 h-5')}</span>
+            <span class="text-[10.5px] font-medium">${l}</span>
+          </button>`).join('')}
+      </div>
+    </nav>
+  </div>`;
+}
+
+function renderPainel(){
+  const v = state.validation;
+  const okRules = v ? v.rules.filter(r=>r.ok).length : 0;
+  const total = v ? v.rules.length : 0;
+  const pendSwaps = state.swaps.filter(s=>s.estado==='Pendente').length;
+  const pendFerias = state.ferias.filter(f=>f.estado==='Pendente').length;
+  const pendInvites = state.invites.filter(i=>i.estado==='Pendente').length;
+  return `
+  <div class="mb-6">
+    <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight">Painel</h1>
+    <p class="text-slate-500 mt-0.5">Visão geral da operação</p>
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+    ${kpi('home','Funcionárias', EMPLOYEES.length, 'ativas')}
+    ${kpi('calendar','Turnos / dia', '9', '4M · 3T · 2N')}
+    ${kpi('bolt','Escala atual', state.grid? state.periodo+' dias':'—', state.grid?'gerada':'por gerar')}
+    ${kpi('shield','Regras OK', v? okRules+'/'+total : '—', 'validadas', v && okRules<total)}
+  </div>
+  <div class="grid lg:grid-cols-2 gap-4 md:gap-6">
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-3 text-sm text-slate-500 uppercase tracking-wide">Pedidos pendentes</h3>
+      <div class="space-y-2">
+        <button onclick="setAdminTab('pedidos')" class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition text-sm cursor-pointer">
+          <span class="flex items-center gap-2">${icon('swap','w-4 h-4 text-slate-400')}Trocas de turno</span>
+          <span class="font-display font-bold nums">${pendSwaps}</span>
+        </button>
+        <button onclick="setAdminTab('pedidos')" class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition text-sm cursor-pointer">
+          <span class="flex items-center gap-2">${icon('sun','w-4 h-4 text-slate-400')}Pedidos de férias</span>
+          <span class="font-display font-bold nums">${pendFerias}</span>
+        </button>
+        <button onclick="setAdminTab('funcionarias')" class="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition text-sm cursor-pointer">
+          <span class="flex items-center gap-2">${icon('mail','w-4 h-4 text-slate-400')}Convites por aceitar</span>
+          <span class="font-display font-bold nums">${pendInvites}</span>
+        </button>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-3 text-sm text-slate-500 uppercase tracking-wide">Legenda de turnos</h3>
+      <div class="space-y-2">
+        ${['M','T','N','F'].map(s=>`
+          <div class="flex items-center gap-3 p-2">
+            <span class="w-9 h-9 rounded-xl ${SHIFTS[s].solid} ${s==='F'?'text-slate-500':'text-white'} flex items-center justify-center font-bold text-sm shrink-0">${s}</span>
+            <span class="font-medium">${SHIFTS[s].nome}</span>
+            <span class="text-slate-400 nums ml-auto text-sm">${SHIFTS[s].horas}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFuncionarias(){
+  const tableRows = EMPLOYEES.map(e=>`
+    <tr class="border-b border-edge last:border-0">
+      <td class="py-3 px-4">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">${initials(e.nome)}</span>
+          <span class="font-medium">${e.nome}</span>
+        </div>
+      </td>
+      <td class="py-3 px-4"><span class="text-xs px-2 py-1 rounded-full font-medium ${e.pool==='noite'?'bg-turnoNbg text-turnoN':'bg-turnoMbg text-turnoM'}">${e.pool}</span></td>
+      <td class="py-3 px-4 nums text-sm text-slate-600">${e.contrato}</td>
+      <td class="py-3 px-4">${e.fixaNoite?`<span class="inline-flex items-center gap-1 text-xs text-teal font-semibold">${icon('shield','w-3.5 h-3.5')}Fixa noite</span>`:'<span class="text-slate-300">—</span>'}</td>
+    </tr>`).join('');
+
+  const cardRows = EMPLOYEES.map(e=>`
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-4 flex items-center gap-3">
+      <span class="w-11 h-11 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-sm font-bold shrink-0">${initials(e.nome)}</span>
+      <div class="min-w-0 flex-1">
+        <div class="font-medium truncate">${e.nome}</div>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
+          <span class="text-[11px] px-2 py-0.5 rounded-full font-medium ${e.pool==='noite'?'bg-turnoNbg text-turnoN':'bg-turnoMbg text-turnoM'}">${e.pool}</span>
+          <span class="text-[11px] text-slate-500 nums">${e.contrato}</span>
+          ${e.fixaNoite?`<span class="text-[11px] text-teal font-semibold">Fixa noite</span>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+
+  const inviteRows = state.invites.map(i=>`
+    <div class="flex items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 text-sm">
+      <span class="flex items-center gap-2 min-w-0"><span class="text-slate-400 shrink-0">${icon('mail','w-4 h-4')}</span><span class="truncate">${i.email}</span></span>
+      <span class="text-[11px] px-2 py-1 rounded-full font-medium shrink-0 ${i.estado==='Registada'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${i.estado}</span>
+    </div>`).join('');
+
+  return `
+  <div class="mb-6">
+    <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight">Funcionárias</h1>
+    <p class="text-slate-500 mt-0.5">12 funcionárias · 4 dedicadas à noite (2 fixas), 8 ao dia</p>
+  </div>
+  <div class="grid lg:grid-cols-3 gap-4 md:gap-6">
+    <div class="lg:col-span-2">
+      <div class="hidden md:block bg-white rounded-2xl border border-edge shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+            <tr><th class="text-left py-2.5 px-4 font-semibold">Nome</th><th class="text-left py-2.5 px-4 font-semibold">Pool</th><th class="text-left py-2.5 px-4 font-semibold">Contrato</th><th class="text-left py-2.5 px-4 font-semibold">Noite</th></tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div class="md:hidden space-y-2.5">${cardRows}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5 h-fit">
+      <h3 class="font-semibold mb-3">Convidar por link</h3>
+      <div class="flex gap-2 mb-4">
+        <input id="inviteEmail" type="email" inputmode="email" placeholder="email@lar.pt" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal">
+        <button onclick="sendInvite()" class="px-4 py-2.5 rounded-xl bg-teal text-white text-sm font-semibold hover:bg-tealdk active:scale-95 transition cursor-pointer shrink-0 flex items-center gap-1.5">${icon('plus','w-4 h-4')}Enviar</button>
+      </div>
+      <div class="space-y-2">${inviteRows}</div>
+    </div>
+  </div>`;
+}
+
+function renderRegras(){
+  const cov = `
+    <div class="grid grid-cols-3 gap-3">
+      ${['M','T','N'].map(s=>`
+        <div class="p-4 rounded-2xl ${SHIFTS[s].cls} text-center">
+          <div class="font-bold text-base md:text-lg">${SHIFTS[s].nome}</div>
+          <div class="text-xs opacity-70 nums mb-2">${SHIFTS[s].horas}</div>
+          <div class="font-display font-extrabold text-2xl nums">${COVERAGE[s]}</div>
+          <div class="text-xs opacity-70">AAD / dia</div>
+        </div>`).join('')}
+    </div>`;
+  const regras = [
+    ['Padrão diurno','M M M F T T T (orientação)'],
+    ['Padrão de noite','N N N F F'],
+    ['Descanso entre turnos','mínimo 11h (bloqueia N→M, N→T, T→M)'],
+    ['2 folgas seguidas','1×/mês e a cada 7 semanas'],
+    ['Manhã × Noite','incompatíveis no mesmo mês'],
+    ['Dias consecutivos','máximo 6'],
+    ['Carga horária','37h30 ou 40h por semana'],
+  ];
+  return `
+  <div class="mb-6">
+    <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight">Regras</h1>
+    <p class="text-slate-500 mt-0.5">Parametrização usada pelo gerador</p>
+  </div>
+  <div class="grid lg:grid-cols-2 gap-4 md:gap-6">
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-4">Cobertura por turno</h3>
+      ${cov}
+    </div>
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-4">Regras ativas</h3>
+      <div class="space-y-2">
+        ${regras.map(([n,d])=>`<div class="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-50 text-sm"><span class="flex items-center gap-2 font-medium">${icon('shield','w-4 h-4 text-teal shrink-0')}${n}</span><span class="text-slate-500 text-right">${d}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex gap-3">
+    <span class="shrink-0">${icon('warn','w-5 h-5')}</span>
+    <p><strong>Nota de viabilidade:</strong> 9 turnos/dia × 7 = 63 turnos/semana para 12 pessoas dá 5,25 turnos (≈42h) por pessoa — acima de 40h. O gerador cobre com horas extra (ver painel de validação). Para eliminar horas extra: reduzir cobertura ao fim de semana ou +1 funcionária.</p>
+  </div>`;
+}
+
+function renderEscalas(){
+  const body = state.grid ? `${renderAgendaMobile()}${renderGrid()}` : `
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-10 md:p-16 text-center text-slate-400">
+      ${icon('calendar','w-10 h-10 mx-auto mb-3 text-slate-300')}
+      <p>Ainda não há escala. Escolhe o período e gera.</p>
+    </div>`;
+  const valHtml = state.validation ? renderValidation() : '';
+  return `
+  <div class="flex items-start md:items-center justify-between mb-5 md:mb-6 flex-col md:flex-row gap-4">
+    <div>
+      <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight">Escalas</h1>
+      <p class="text-slate-500 mt-0.5">Geração automática com validação de regras</p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap w-full md:w-auto">
+      <select id="periodoSel" onchange="setPeriodo(this.value)" class="px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal/40">
+        <option value="7"  ${state.periodo==7?'selected':''}>1 semana</option>
+        <option value="28" ${state.periodo==28?'selected':''}>4 semanas (mês)</option>
+        <option value="84" ${state.periodo==84?'selected':''}>Trimestre</option>
+        <option value="364"${state.periodo==364?'selected':''}>Ano</option>
+      </select>
+      <label class="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl border border-edge bg-white cursor-pointer select-none">
+        <input type="checkbox" class="accent-teal w-4 h-4" ${state.allowOvertime?'checked':''} onchange="toggleOvertime()"> Horas extra
+      </label>
+      <button onclick="regen()" class="px-4 py-2.5 rounded-xl bg-teal text-white text-sm font-semibold hover:bg-tealdk active:scale-95 transition cursor-pointer flex items-center gap-1.5">${icon('bolt','w-4 h-4')}Gerar escala</button>
+    </div>
+  </div>
+  ${valHtml}
+  ${body}`;
+}
+
+function renderGrid(){
+  const days = Math.min(state.periodo, 42); // limita render visual a 6 semanas
+  const trunc = state.periodo > days;
+  const header = `<th class="sticky left-0 bg-white z-10 text-left py-2 px-3 text-xs font-semibold text-slate-500 min-w-[140px] border-b border-edge">Funcionária</th>` +
+    Array.from({length:days},(_,d)=>`<th class="py-2 px-0 text-center text-[10px] font-semibold ${isWeekend(d)?'text-teal bg-teal/5':'text-slate-400'} min-w-[28px] border-b border-edge ${d%7===0?'border-l border-edge':''}">${diaLabel(d)}<br><span class="nums">${d+1}</span></th>`).join('');
+
+  const rows = EMPLOYEES.map(e=>{
+    const cells = Array.from({length:days},(_,d)=>{
+      const s = state.grid[e.id][d];
+      return `<td class="p-[2px] text-center ${d%7===0?'border-l border-edge':''} ${isWeekend(d)?'bg-teal/[0.03]':''}">
+        <div class="cell w-7 h-7 mx-auto rounded-lg ${SHIFTS[s].solid} ${s==='F'?'text-slate-400':'text-white'} flex items-center justify-center text-[10px] font-bold cursor-default" title="${diaLabel(d)} ${d+1} · ${SHIFTS[s].nome}">${s==='F'?'':s}</div>
+      </td>`;
+    }).join('');
+    const h = state.validation.horasPorEmp[e.id];
+    const badge = h.extra ? `<span class="text-[10px] text-amber-600 font-semibold ml-1">+extra</span>` : '';
+    return `<tr>
+      <td class="sticky left-0 bg-white z-10 py-1.5 px-3 text-xs font-medium whitespace-nowrap border-b border-edge">
+        <div class="flex items-center gap-1.5">
+          <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-bold shrink-0">${initials(e.nome)}</span>
+          <span>${e.nome}</span>${e.fixaNoite?`<span class="w-1.5 h-1.5 rounded-full bg-turnoN shrink-0"></span>`:''}
+        </div>
+        <div class="text-[10px] text-slate-400 nums pl-7">${h.mediaSemana}h/sem · ${h.turnos} turnos${badge}</div>
+      </td>${cells}</tr>`;
+  }).join('');
+
+  return `
+  <div class="hidden md:block bg-white rounded-2xl border border-edge shadow-sm overflow-hidden">
+    ${trunc?`<div class="px-4 py-2 text-xs text-slate-500 bg-slate-50 border-b border-edge">A mostrar os primeiros ${days} de ${state.periodo} dias · validação corre sobre o período completo</div>`:''}
+    <div class="overflow-x-auto">
+      <table class="border-collapse w-full"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  </div>`;
+}
+
+function renderAgendaMobile(){
+  const totalWeeks = Math.max(1, Math.ceil(state.periodo/7));
+  const w = Math.min(state.adminWeek, totalWeeks-1);
+  const start = w*7, end = Math.min(start+7, state.periodo);
+  const dayCards = [];
+  for(let d=start; d<end; d++){
+    const rows = ['M','T','N'].map(s=>{
+      const people = employeesOnDay(d,s);
+      const chips = people.map(e=>`<span class="w-7 h-7 rounded-full ${SHIFTS[s].solid} text-white text-[10px] font-bold flex items-center justify-center shrink-0" title="${e.nome}">${initials(e.nome)}</span>`).join('');
+      return `<div class="flex items-center gap-2 py-1.5">
+        <span class="w-14 shrink-0 text-xs font-semibold ${s==='M'?'text-turnoM':s==='T'?'text-turnoT':'text-turnoN'}">${SHIFTS[s].nome}</span>
+        <div class="flex items-center gap-1 flex-wrap">${chips || '<span class="text-xs text-slate-300">—</span>'}</div>
+      </div>`;
+    }).join('');
+    const folgaCount = EMPLOYEES.length - ['M','T','N'].reduce((a,s)=>a+employeesOnDay(d,s).length,0);
+    dayCards.push(`
+      <div class="bg-white rounded-2xl border border-edge shadow-sm p-4 ${isWeekend(d)?'ring-1 ring-teal/15':''}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-baseline gap-2">
+            <span class="font-display font-bold text-lg">${diaLabel(d)}</span>
+            <span class="text-slate-400 text-sm nums">Dia ${d+1}</span>
+          </div>
+          ${isWeekend(d)?'<span class="text-[10px] font-semibold text-teal bg-teal/10 px-2 py-0.5 rounded-full">Fim de semana</span>':''}
+        </div>
+        ${rows}
+        <div class="text-[11px] text-slate-400 mt-1 pt-2 border-t border-edge">${folgaCount} em folga</div>
+      </div>`);
+  }
+  return `
+  <div class="md:hidden space-y-3 mb-4">
+    <div class="flex items-center justify-between">
+      <button onclick="setAdminWeek(-1)" ${w===0?'disabled':''} class="w-10 h-10 flex items-center justify-center rounded-full border border-edge disabled:opacity-30 cursor-pointer">${icon('chevronLeft','w-5 h-5')}</button>
+      <span class="text-sm font-semibold text-slate-500">Semana ${w+1} de ${totalWeeks}</span>
+      <button onclick="setAdminWeek(1)" ${w>=totalWeeks-1?'disabled':''} class="w-10 h-10 flex items-center justify-center rounded-full border border-edge disabled:opacity-30 cursor-pointer">${icon('chevronRight','w-5 h-5')}</button>
+    </div>
+    <div class="space-y-3">${dayCards.join('')}</div>
+  </div>`;
+}
+
+function renderValidation(){
+  const rules = state.validation.rules;
+  const theme = {
+    ok:   { bg:'bg-emerald-50', border:'border-emerald-200', dot:'bg-emerald-500', ic:'check' },
+    warn: { bg:'bg-amber-50',   border:'border-amber-200',   dot:'bg-amber-500',   ic:'warn' },
+    bad:  { bg:'bg-red-50',     border:'border-red-200',     dot:'bg-red-500',     ic:'xcircle' },
+  };
+  const cards = rules.map(r=>{
+    const st = r.ok ? 'ok' : (r.warn ? 'warn' : 'bad');
+    const t = theme[st];
+    return `<div class="p-3 rounded-xl border ${t.bg} ${t.border} flex items-start gap-2.5">
+      <span class="w-6 h-6 rounded-full ${t.dot} text-white flex items-center justify-center shrink-0 mt-0.5">${icon(t.ic,'w-3.5 h-3.5')}</span>
+      <div class="min-w-0">
+        <div class="text-xs font-semibold">${r.nome}</div>
+        <div class="text-[11px] text-slate-500">${r.detalhe}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="bg-white rounded-2xl border border-edge shadow-sm p-4 mb-4">
+    <h3 class="font-semibold text-sm mb-3">Validação de regras <span class="text-slate-400 font-normal">· período de ${state.periodo} dias</span></h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${cards}</div>
+  </div>`;
+}
+
+function renderPedidos(){
+  const swapRows = state.swaps.map((s,i)=>`
+    <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 text-sm">
+      <span class="flex items-center gap-2 min-w-0"><span class="text-slate-400 shrink-0">${icon('swap','w-4 h-4')}</span><span class="truncate"><strong>${s.de}</strong> ⇄ <strong>${s.para}</strong> · dia ${s.dia}</span></span>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-[11px] px-2 py-1 rounded-full font-medium ${s.estado==='Aprovada'?'bg-emerald-100 text-emerald-700':s.estado==='Recusada'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-700'}">${s.estado}</span>
+        <button onclick="resolveSwap(${i},true)" class="text-xs px-3 py-1.5 rounded-lg bg-teal text-white font-medium hover:bg-tealdk active:scale-95 transition cursor-pointer">Aprovar</button>
+      </div>
+    </div>`).join('') || '<p class="text-sm text-slate-400 p-2">Sem trocas.</p>';
+  const feriasRows = state.ferias.map((f,i)=>`
+    <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 text-sm">
+      <span class="flex items-center gap-2 min-w-0"><span class="text-slate-400 shrink-0">${icon('sun','w-4 h-4')}</span><span class="truncate"><strong>${f.emp}</strong> · dias ${f.inicio}–${f.fim}</span></span>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="text-[11px] px-2 py-1 rounded-full font-medium ${f.estado==='Aprovada'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${f.estado}</span>
+        <button onclick="resolveFerias(${i})" class="text-xs px-3 py-1.5 rounded-lg bg-teal text-white font-medium hover:bg-tealdk active:scale-95 transition cursor-pointer">Aprovar</button>
+      </div>
+    </div>`).join('') || '<p class="text-sm text-slate-400 p-2">Sem pedidos.</p>';
+  return `
+  <div class="mb-6">
+    <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight">Pedidos</h1>
+    <p class="text-slate-500 mt-0.5">Trocas e férias — cada aprovação revalida as regras</p>
+  </div>
+  <div class="grid lg:grid-cols-2 gap-4 md:gap-6">
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-3">Trocas de turno</h3>
+      <div class="space-y-2">${swapRows}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-edge shadow-sm p-5">
+      <h3 class="font-semibold mb-3">Férias</h3>
+      <div class="space-y-2">${feriasRows}</div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   RENDER — SHELL FUNCIONÁRIA
+   ============================================================ */
+function renderEmployee(){
+  const emp = EMPLOYEES.find(e=>e.id===state.currentEmp);
+  let content = '';
+  if(state.empTab==='horario') content = renderMeuHorario(emp);
+  if(state.empTab==='troca')   content = renderPedirTroca(emp);
+  if(state.empTab==='ferias')  content = renderPedirFerias(emp);
+  const title = EMP_TABS.find(t=>t[0]===state.empTab)[1];
+
+  return `
+  <div class="min-h-dvh bg-canvas pb-24 md:pb-10">
+    <header class="pt-safe" style="background:linear-gradient(135deg,#0E7C7B,#0A5F5E);">
+      <div class="max-w-4xl mx-auto px-5 md:px-6 pt-3 md:pt-5 pb-4 md:pb-5 flex items-center justify-between text-white">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center font-display font-extrabold text-lg shrink-0">${initials(emp.nome)}</div>
+          <div class="min-w-0">
+            <div class="font-semibold leading-tight truncate">${emp.nome}</div>
+            <div class="text-xs text-white/70 truncate">Pool ${emp.pool} · contrato ${emp.contrato}</div>
+          </div>
+        </div>
+        <button onclick="go('login')" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 cursor-pointer shrink-0" aria-label="Sair">${icon('logout','w-5 h-5')}</button>
+      </div>
+      <div class="hidden md:flex max-w-4xl mx-auto px-6 gap-2 pb-4">
+        ${EMP_TABS.map(([k,l,ic])=>`<button onclick="setEmpTab('${k}')" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer ${state.empTab===k?'bg-white text-tealdk':'text-white/80 hover:bg-white/10'}">${icon(ic,'w-4 h-4')}${l}</button>`).join('')}
+      </div>
+    </header>
+    <div class="md:hidden px-5 pt-4 pb-1">
+      <h1 class="font-display font-extrabold text-2xl tracking-tight">${title}</h1>
+    </div>
+    <div class="max-w-4xl mx-auto px-4 md:px-6 py-4 md:py-6 view-enter">
+      ${content}
+    </div>
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-t border-edge pb-safe">
+      <div class="grid grid-cols-3">
+        ${EMP_TABS.map(([k,l,ic])=>`
+          <button onclick="setEmpTab('${k}')" class="flex flex-col items-center justify-center gap-1 py-2.5 min-h-[52px] cursor-pointer ${state.empTab===k?'mnav-active':'text-slate-400'}">
+            <span class="mnav-pill flex items-center justify-center w-9 h-7 rounded-full">${icon(ic,'w-5 h-5')}</span>
+            <span class="text-[10.5px] font-medium">${l}</span>
+          </button>`).join('')}
+      </div>
+    </nav>
+  </div>`;
+}
+
+function renderMeuHorario(emp){
+  if(!state.grid) return `<div class="bg-white rounded-2xl border border-edge shadow-sm p-10 text-center text-slate-400">A escala ainda não foi publicada.</div>`;
+  const h = state.validation.horasPorEmp[emp.id];
+  const days = Math.min(state.periodo, 28);
+  // agrupa por semanas
+  let semanas = '';
+  for(let w=0; w*7<days; w++){
+    const cells = Array.from({length:7},(_,i)=>{
+      const d = w*7+i; if(d>=days) return '';
+      const s = state.grid[emp.id][d];
+      return `<div class="min-w-[104px] md:min-w-0 md:flex-1 snap-start rounded-2xl ${SHIFTS[s].solid} ${s==='F'?'text-slate-500':'text-white'} p-3 text-center shrink-0 md:shrink">
+        <div class="text-[10px] opacity-70">${diaLabel(d)} ${d+1}</div>
+        <div class="font-bold text-sm mt-0.5">${s==='F'?'Folga':SHIFTS[s].nome}</div>
+        <div class="text-[10px] opacity-70 nums mt-0.5">${SHIFTS[s].horas}</div>
+      </div>`;
+    }).join('');
+    semanas += `<div class="mb-3">
+      <div class="text-xs font-semibold text-slate-400 mb-1.5 px-0.5">Semana ${w+1}</div>
+      <div class="flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-1 md:overflow-visible">${cells}</div>
+    </div>`;
+  }
+  return `
+  <div class="grid grid-cols-3 gap-2.5 md:gap-3 mb-5 md:mb-6">
+    ${kpi('calendar','Horas / semana', h.mediaSemana, `alvo ${h.alvo}h`, h.extra)}
+    ${kpi('bolt','Turnos', h.turnos, `em ${state.periodo} dias`)}
+    ${kpi('sun','Folgas', state.grid[emp.id].filter(t=>t==='F').length, 'no período')}
+  </div>
+  <div class="bg-white rounded-2xl border border-edge shadow-sm p-4 md:p-5">
+    <h3 class="font-semibold mb-4">Próximas semanas</h3>
+    ${semanas}
+  </div>`;
+}
+
+function renderPedirTroca(emp){
+  const colegas = EMPLOYEES.filter(e=>e.id!==emp.id && e.pool===emp.pool);
+  const opts = colegas.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  return `
+  <div class="bg-white rounded-2xl border border-edge shadow-sm p-5 md:p-6 max-w-lg">
+    <div class="flex items-center gap-2 mb-1"><span class="text-teal">${icon('swap','w-5 h-5')}</span><h3 class="font-semibold">Propor troca de turno</h3></div>
+    <p class="text-sm text-slate-500 mb-4">O sistema simula a troca e só a permite se todas as regras se mantiverem.</p>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-slate-500">O meu dia (1–${state.periodo})</label>
+        <input id="swapMyDay" type="number" inputmode="numeric" min="1" max="${state.periodo}" value="1" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500">Colega</label>
+        <select id="swapColega" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal/40">${opts}</select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500">Dia da colega (1–${state.periodo})</label>
+        <input id="swapColDay" type="number" inputmode="numeric" min="1" max="${state.periodo}" value="2" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal">
+      </div>
+      <button onclick="simulateSwap(${emp.id})" class="w-full py-3 rounded-xl bg-teal text-white font-semibold hover:bg-tealdk active:scale-[.98] transition cursor-pointer">Verificar e enviar</button>
+    </div>
+    <div id="swapResult" class="mt-4"></div>
+  </div>`;
+}
+
+function renderPedirFerias(emp){
+  return `
+  <div class="bg-white rounded-2xl border border-edge shadow-sm p-5 md:p-6 max-w-lg">
+    <div class="flex items-center gap-2 mb-1"><span class="text-teal">${icon('sun','w-5 h-5')}</span><h3 class="font-semibold">Pedir férias</h3></div>
+    <p class="text-sm text-slate-500 mb-4">O sistema verifica se a cobertura se mantém no período.</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="text-xs font-semibold text-slate-500">Dia início</label>
+        <input id="fInicio" type="number" inputmode="numeric" min="1" max="${state.periodo}" value="10" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-slate-500">Dia fim</label>
+        <input id="fFim" type="number" inputmode="numeric" min="1" max="${state.periodo}" value="16" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-edge text-base md:text-sm focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal">
+      </div>
+    </div>
+    <button onclick="pedirFerias(${emp.id})" class="w-full mt-4 py-3 rounded-xl bg-teal text-white font-semibold hover:bg-tealdk active:scale-[.98] transition cursor-pointer">Enviar pedido</button>
+    <div id="fResult" class="mt-4"></div>
+  </div>`;
+}
+
+/* ============================================================
+   AÇÕES
+   ============================================================ */
+function render(){
+  const app = document.getElementById('app');
+  if(state.view==='login')    app.innerHTML = renderLogin();
+  if(state.view==='admin')    app.innerHTML = renderAdmin();
+  if(state.view==='employee') app.innerHTML = renderEmployee();
+}
+function go(v){ state.view=v; render(); }
+function setAdminTab(t){ state.adminTab=t; render(); }
+function setEmpTab(t){ state.empTab=t; render(); }
+function setAdminWeek(delta){
+  const totalWeeks = Math.max(1, Math.ceil(state.periodo/7));
+  state.adminWeek = Math.min(Math.max(state.adminWeek+delta, 0), totalWeeks-1);
+  render();
+}
+function setPeriodo(v){ state.periodo=parseInt(v); state.adminWeek=0; }
+function toggleOvertime(){ state.allowOvertime=!state.allowOvertime; }
+function regen(){ state.seed = Math.floor(Math.random()*100000); state.adminWeek=0; generateSchedule(); render(); }
+
+function sendInvite(){
+  const el = document.getElementById('inviteEmail');
+  if(el && el.value){ state.invites.push({email:el.value, estado:'Pendente'}); render(); }
+}
+function resolveSwap(i, ok){ state.swaps[i].estado = ok?'Aprovada':'Recusada'; render(); }
+function resolveFerias(i){ state.ferias[i].estado='Aprovada'; render(); }
+
+// Simula troca: aplica no grid clonado e revalida
+function simulateSwap(empId){
+  const myDay = parseInt(document.getElementById('swapMyDay').value)-1;
+  const colId = parseInt(document.getElementById('swapColega').value);
+  const colDay = parseInt(document.getElementById('swapColDay').value)-1;
+  const res = document.getElementById('swapResult');
+  if(!state.grid){ res.innerHTML = msg('bad','Não há escala gerada.'); return; }
+
+  const clone = {}; EMPLOYEES.forEach(e=> clone[e.id]=[...state.grid[e.id]]);
+  const a = clone[empId][myDay], b = clone[colId][colDay];
+  clone[empId][myDay] = b; clone[colId][colDay] = a;
+
+  const v = validateSchedule(clone, state.periodo);
+  const falhas = v.rules.filter(r=>!r.ok && !r.warn);
+  if(falhas.length===0){
+    state.grid = clone; state.validation = validateSchedule(clone, state.periodo);
+    const col = EMPLOYEES.find(e=>e.id===colId);
+    state.swaps.push({de:EMPLOYEES.find(e=>e.id===empId).nome, para:col.nome, dia:myDay+1, estado:'Pendente'});
+    res.innerHTML = msg('ok','Troca válida — todas as regras mantidas. Pedido enviado à colega.');
+  } else {
+    res.innerHTML = msg('bad','Troca bloqueada: '+falhas.map(f=>f.nome).join('; ')+'.');
+  }
+  render();
+  // reabre a aba troca com o resultado (render recria o DOM)
+  setTimeout(()=>{ const r=document.getElementById('swapResult'); if(r) r.innerHTML = falhas.length===0?msg('ok','Troca válida e enviada.'):msg('bad','Troca bloqueada: '+falhas.map(f=>f.nome).join('; ')+'.'); },0);
+}
+
+function pedirFerias(empId){
+  const ini = parseInt(document.getElementById('fInicio').value)-1;
+  const fim = parseInt(document.getElementById('fFim').value)-1;
+  const res = document.getElementById('fResult');
+  if(!state.grid){ res.innerHTML = msg('bad','Não há escala gerada.'); return; }
+
+  // testa: pôr a pessoa a folga no período e ver se cobertura aguenta
+  const clone = {}; EMPLOYEES.forEach(e=> clone[e.id]=[...state.grid[e.id]]);
+  for(let d=ini; d<=fim; d++){ if(clone[empId][d]!==undefined) clone[empId][d]='F'; }
+  const v = validateSchedule(clone, state.periodo);
+  const cobertura = v.rules.find(r=>r.id==='R1');
+  const emp = EMPLOYEES.find(e=>e.id===empId);
+  if(cobertura.ok){
+    state.ferias.push({emp:emp.nome, inicio:ini+1, fim:fim+1, estado:'Pendente'});
+    res.innerHTML = msg('ok','Cobertura mantida no período. Pedido enviado à administração.');
+  } else {
+    res.innerHTML = msg('warn','Atenção: a cobertura fica em risco neste período ('+cobertura.detalhe+'). A administração terá de reorganizar antes de aprovar.');
+  }
+}
+
+function msg(type, text){
+  const theme = {
+    ok:   { bg:'bg-emerald-50', border:'border-emerald-200', text:'text-emerald-800', ic:'check' },
+    warn: { bg:'bg-amber-50',   border:'border-amber-200',   text:'text-amber-800',   ic:'warn' },
+    bad:  { bg:'bg-red-50',     border:'border-red-200',     text:'text-red-800',     ic:'xcircle' },
+  }[type];
+  return `<div class="p-3 rounded-xl border ${theme.bg} ${theme.border} ${theme.text} text-sm flex items-start gap-2">
+    <span class="shrink-0 mt-0.5">${icon(theme.ic,'w-4 h-4')}</span><span>${text}</span>
+  </div>`;
+}
+
+/* ============================================================
+   ARRANQUE
+   ============================================================ */
+generateSchedule();
+render();
+</script>
+</body>
+</html>
