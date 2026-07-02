@@ -47,7 +47,12 @@
       "Bash(vendor/bin/pint --dirty --quiet)",
       "Bash(git add *)",
       "Bash(git commit -q -m 'Fase 0: fundação — Laravel 12 + Inertia/React/TS, solver FastAPI+OR-Tools, dev.sh, CI *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh issue *)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql *)",
+      "Bash(composer remove *)",
+      "Bash(composer require *)",
+      "Bash(git commit -q -m 'Fase 1: schema completo multi-tenant — enums, migrations, models, factories, seeds *)"
     ]
   }
 }
