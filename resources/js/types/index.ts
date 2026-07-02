@@ -74,6 +74,81 @@ export interface Viability {
     suggestions: string[];
 }
 
+export interface ScheduleSummary {
+    id: number;
+    period_start: string;
+    period_end: string;
+    label: string;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    generated_at: string | null;
+    published_at: string | null;
+}
+
+export interface ScheduleMeta {
+    id: number;
+    period_start: string;
+    period_end: string;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    generated_at?: string | null;
+    published_at: string | null;
+    solver_stats?: SolverStats | null;
+}
+
+export interface SolverStats {
+    status: 'FEASIBLE' | 'INFEASIBLE' | 'TIMEOUT' | 'UNAVAILABLE';
+    objective?: number | null;
+    wall_time_s?: number | null;
+    conflicts?: SolverViolation[];
+    error?: string;
+}
+
+export interface SolverViolation {
+    rule: string;
+    message: string;
+    date?: string | null;
+    employee_id?: number | null;
+}
+
+export interface ScheduleDate {
+    date: string;
+    day: number;
+    weekday_label: string;
+    is_weekend: boolean;
+    is_current_week?: boolean;
+}
+
+export interface ScheduleCell {
+    date: string;
+    shift_code: string | null;
+    shift_type_id: number | null;
+    is_day_off: boolean;
+}
+
+export interface ScheduleEmployeeRow {
+    employee_id: number;
+    name: string;
+    cells: ScheduleCell[];
+    total_hours: number;
+    avg_weekly_hours: number;
+    days_off: number;
+    weekends_worked: number;
+    is_self?: boolean;
+}
+
+export interface ScheduleDayFooterShift {
+    shift_type_id: number;
+    code: string;
+    required: number;
+    actual: number;
+    ok: boolean;
+}
+
+export interface ScheduleDayFooter {
+    date: string;
+    is_weekend: boolean;
+    shifts: ScheduleDayFooterShift[];
+}
+
 export interface BreadcrumbItem {
     title: string;
     href: string;

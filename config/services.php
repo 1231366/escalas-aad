@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // Microserviço Python/FastAPI, única fonte da lógica de regras (ADR-0002).
+    'solver' => [
+        'url' => env('SOLVER_URL', 'http://localhost:8001'),
+    ],
+
 ];

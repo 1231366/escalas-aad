@@ -2,10 +2,13 @@
 
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
+use App\Http\Controllers\Admin\ScheduleController as AdminScheduleController;
 use App\Http\Controllers\Admin\ScheduleExportController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvitationAcceptanceController;
+use App\Http\Controllers\MyScheduleController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,7 +26,15 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    // Consulta da escala pela funcionária — PUBLISHED do mês corrente ou próxima (PRD F4).
+    Route::get('escala', [MyScheduleController::class, 'show'])->name('my-schedule');
+
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // API in-app para o sino de notificações — polling 30s, sem websockets (ADR-0005 / PRD F7)
+    Route::get('notificacoes', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('notificacoes/{id}/lida', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('notificacoes/lidas', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 // Portal de administração
@@ -39,6 +50,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('regras/turnos/{shiftType}', [RuleSettingsController::class, 'updateShiftType'])->name('rules.shift-types.update');
 
     Route::get('escalas/{schedule}/excel', [ScheduleExportController::class, 'download'])->name('schedules.export');
+
+    // Geração/publicação da escala mensal via solver (PRD F4, ADR-0002).
+    Route::get('escalas', [AdminScheduleController::class, 'index'])->name('schedules.index');
+    Route::post('escalas', [AdminScheduleController::class, 'store'])->name('schedules.store');
+    Route::get('escalas/{schedule}', [AdminScheduleController::class, 'show'])->name('schedules.show');
+    Route::post('escalas/{schedule}/gerar', [AdminScheduleController::class, 'regenerate'])->name('schedules.regenerate');
+    Route::post('escalas/{schedule}/publicar', [AdminScheduleController::class, 'publish'])->name('schedules.publish');
+    Route::post('escalas/{schedule}/arquivar', [AdminScheduleController::class, 'archive'])->name('schedules.archive');
 });
 
 // Feed iCal privado por funcionária — público, o token é o segredo (PRD F9)

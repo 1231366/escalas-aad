@@ -1,6 +1,26 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "Skill",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskList",
+      "TaskGet",
+      "TaskStop",
+      "TaskOutput",
+      "Monitor",
+      "NotebookEdit",
+      "SendMessage",
+      "ToolSearch",
       "Bash(python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py \"healthcare shift scheduling operations dashboard SaaS\" --design-system -p \"Escalas AAD\")",
       "Bash(python3 *)",
       "Bash(node --check /tmp/check.js)",
@@ -63,7 +83,28 @@
       "Bash(php *)",
       "Bash(vendor/bin/pint --test --dirty -q)",
       "Bash(git commit -q -m 'Fase 1: configuração de regras \\(admin\\) — turnos, cobertura por dia, parâmetros *)",
-      "Bash(git commit -q -m 'Fase 1: perfil de trabalho da funcionária + preferências de notificação *)"
-    ]
+      "Bash(git commit -q -m 'Fase 1: perfil de trabalho da funcionária + preferências de notificação *)",
+      "Bash(gh run *)",
+      "Bash(xargs -I{} sh -c 'echo ---{}---; cat {}')",
+      "Bash(composer why *)",
+      "Bash(composer show *)",
+      "Bash(xargs cat)",
+      "Bash(git commit -q -m 'Fase 2: check de viabilidade no dashboard admin *)",
+      "Bash(vendor/bin/pint app/Http/Controllers/CalendarFeedController.php app/Http/Controllers/Settings/CalendarController.php routes/web.php routes/settings.php tests/Feature/CalendarFeedTest.php --test)",
+      "Bash(php -v)",
+      "Bash(git commit -q -m 'Fase 4 antecipada: export Excel + feed iCal Google/Apple *)",
+      "Skill(update-config)",
+      "Bash(vendor/bin/pint app/Notifications/SchedulePublishedNotification.php app/Listeners/SendSchedulePublishedNotifications.php app/Http/Controllers/NotificationController.php routes/web.php tests/Feature/NotificationTest.php -v)",
+      "Bash(php -l app/Services/Solver/SolverClient.php)",
+      "Bash(php -l app/Services/ScheduleGridBuilder.php)",
+      "Bash(uv run python -c ' *)",
+      "Bash(timeout 30 php artisan test --compact --filter \"debug my schedule\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(pkill -9 -f \"artisan test\")",
+      "Bash(pkill -9 -f pest)",
+      "Bash(cd *)",
+      "Bash(git commit -q -m 'Fase 2+3: geração/grelha de escalas \\(#11\\) + notificações email e sino \\(#15\\) *)"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }
