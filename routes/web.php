@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvitationAcceptanceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -20,9 +21,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
 
 // Portal de administração

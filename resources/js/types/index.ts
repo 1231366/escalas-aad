@@ -44,6 +44,36 @@ export interface RuleConfigs {
     ff_monthly: boolean;
 }
 
+export interface ViabilityBalance {
+    shifts_per_week: number;
+    hours_per_week: number;
+}
+
+export interface Viability {
+    status: 'ok' | 'tight' | 'deficit';
+    employees_count: number;
+    hour_bank_weekly_tolerance: number;
+    demand: {
+        shifts_per_week: number;
+        hours_per_week: number;
+    };
+    supply: {
+        contractual: ViabilityBalance;
+        with_hour_bank: ViabilityBalance;
+    };
+    balance: {
+        contractual: ViabilityBalance;
+        with_hour_bank: ViabilityBalance;
+    };
+    night: {
+        required_shifts_per_week: number;
+        pool_size: number;
+        pool_ok: boolean;
+        min_pool_size: number;
+    };
+    suggestions: string[];
+}
+
 export interface BreadcrumbItem {
     title: string;
     href: string;
