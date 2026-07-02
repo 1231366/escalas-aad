@@ -40,7 +40,7 @@ Trocas são **entre funcionárias** (AAD↔AAD); o admin não é parte, apenas s
 Funcionária pede intervalo de férias → solver testa impacto na cobertura (`POST /vacation-impact`) → admin aprova/recusa com essa informação. Ausências (baixa/falta) registadas pelo admin disparam re-otimização parcial do período com aviso. Aprovação de férias notifica a funcionária (email + in-app).
 
 ### F7 — Notificações
-Laravel Notifications multi-canal: **email** (Resend, templates bonitos) + **in-app** (sino com Reverb/websockets, contagem não lida). Eventos: convite aceite (→admin), escala publicada (→todas), pedido de troca (→alvo + admin), troca aceite/recusada/aplicada (→ambas + admin), férias pedidas (→admin), férias decididas (→funcionária). Preferências por utilizador (pode desligar email por tipo).
+Laravel Notifications multi-canal: **email** (Brevo/Resend free tier, templates bonitos) + **in-app** (sino com polling de 30s, contagem não lida — ADR-0005). Eventos: convite aceite (→admin), escala publicada (→todas), pedido de troca (→alvo + admin), troca aceite/recusada/aplicada (→ambas + admin), férias pedidas (→admin), férias decididas (→funcionária). Preferências por utilizador (pode desligar email por tipo).
 
 ### F8 — Exportação Excel
 Export da escala do mês (`maatwebsite/excel`): grelha pessoas×dias com cores por turno + colunas de totais (horas/semana, folgas, fins de semana trabalhados) + folha de resumo por turno/dia. Download direto e/ou guardado no Supabase Storage.
@@ -70,11 +70,11 @@ IDs canónicos H1–H10 / S1–S6 em `CONTEXT.md`; interpretações fixadas em A
 - **Idioma:** UI em PT-PT (strings via i18n para futura tradução).
 - **Qualidade:** Pest (feature+unit) no Laravel, pytest no solver, CI GitHub Actions (lint+testes nos 2 serviços), Larastan + Pint, ESLint + Prettier.
 - **Segurança:** policies por organização em todas as queries, tokens de convite/calendário opacos e revogáveis, rate limiting no login e endpoints públicos.
-- **Deploy:** Docker Compose local; Railway (app+solver+redis) + Supabase (Postgres+Storage); domínio próprio.
+- **Deploy:** dev local nativo (artisan serve + vite + uvicorn); produção 100% gratuita — Render free (app via Dockerfile + solver) + Supabase free (Postgres+Storage) + cron-job.org (scheduler/fila); domínio próprio (ADR-0005).
 
 ## 7. Fases
 
-- **Fase 0 — Fundação do repo:** esqueleto Laravel+Inertia+React, esqueleto solver FastAPI, Docker Compose, CI. *(sem features)*
+- **Fase 0 — Fundação do repo:** esqueleto Laravel+Inertia+React, esqueleto solver FastAPI, scripts de dev local, CI. *(sem features)*
 - **Fase 1 — Contas e organização:** F1, F2, F3 (sem check de viabilidade avançado).
 - **Fase 2 — Solver e geração:** solver H1–H10+S1–S6 incremental, F4 completo, check de viabilidade.
 - **Fase 3 — Alterações:** F5 (trocas), F6 (férias/ausências), F7 (notificações — nasce aqui porque trocas dependem delas).

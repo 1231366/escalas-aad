@@ -36,4 +36,4 @@ Referir regras sempre pelo ID (ex.: "isto viola H3"), em código, mensagens de e
 
 - **API/Web** — monólito Laravel 11 (MVC) + Inertia + React + TS + Tailwind + shadcn/ui. Auth Sanctum (sessão web + tokens para futura app mobile via `routes/api.php`).
 - **Solver** — microserviço Python/FastAPI com OR-Tools CP-SAT. **Única** fonte da lógica de regras; serve geração, validação de trocas, candidatas a troca e teste de férias.
-- **BD** — PostgreSQL (Supabase). **Deploy** — Railway (Laravel + solver + Redis) com o domínio do utilizador.
+- **BD** — PostgreSQL (Supabase free). **Deploy** — Render free tier (Laravel via Dockerfile + solver Python nativo), domínio do utilizador via DNS. Sem Redis (filas `database`), sem websockets (polling 30s). Custo total: 0€ (ADR-0005).
