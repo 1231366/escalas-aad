@@ -21,6 +21,29 @@ export interface Invitation {
     whatsapp_url: string | null;
 }
 
+export interface ShiftType {
+    id: number;
+    code: string;
+    name: string;
+    starts_at: string;
+    ends_at: string;
+    hours: number;
+    color: string;
+}
+
+export interface CoverageEntry {
+    shift_type_id: number;
+    weekday: number;
+    required: number;
+}
+
+export interface RuleConfigs {
+    hour_bank_weekly_tolerance: number;
+    max_consecutive_work_days: number;
+    ff_window_weeks: number;
+    ff_monthly: boolean;
+}
+
 export interface BreadcrumbItem {
     title: string;
     href: string;

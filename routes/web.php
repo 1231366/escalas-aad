@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\InvitationController;
+use App\Http\Controllers\Admin\RuleSettingsController;
 use App\Http\Controllers\InvitationAcceptanceController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -30,6 +31,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('convites', [InvitationController::class, 'store'])->name('invitations.store');
     Route::post('convites/{invitation}/reenviar', [InvitationController::class, 'resend'])->name('invitations.resend');
     Route::post('convites/{invitation}/revogar', [InvitationController::class, 'revoke'])->name('invitations.revoke');
+
+    Route::get('regras', [RuleSettingsController::class, 'index'])->name('rules.index');
+    Route::put('regras/cobertura', [RuleSettingsController::class, 'updateCoverage'])->name('rules.coverage.update');
+    Route::put('regras/parametros', [RuleSettingsController::class, 'updateParameters'])->name('rules.parameters.update');
+    Route::put('regras/turnos/{shiftType}', [RuleSettingsController::class, 'updateShiftType'])->name('rules.shift-types.update');
 });
 
 require __DIR__.'/settings.php';
