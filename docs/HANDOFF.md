@@ -31,21 +31,16 @@ Login demo (após `php artisan migrate:fresh --seed`): `admin@demo.test` / `pass
 - ✅ **Fase 0** (#1–#3), **Fase 1** (#4–#8) — completas e commitadas
 - ✅ **#13 viabilidade** (commitado), **#19 Excel + #20 iCal** (commitados) — antecipados
 - ✅ **Dockerfile de produção + .dockerignore** commitados (parte técnica do #22)
-- 🟡 **NO DISCO MAS SEM COMMIT** (agentes terminaram/estavam a meio quando a sessão parou):
-  - **#15 notificações — TERMINADO, por commitar**: SchedulePublishedNotification, Listeners/SendSchedulePublishedNotifications, NotificationController, notification-bell.tsx (polling 30s), app-sidebar-header.tsx, rotas no fim do grupo auth, tests/Feature/NotificationTest.php (7 testes). Agente reportou 77 verdes.
-  - **#9+#10 solver — QUASE/JÁ TERMINADO, por commitar**: solver/app/model.py (CP-SAT completo), main.py com /generate e /validate reais, schemas com SolverParams, testes reescritos. Estado final não confirmado — correr `cd solver && uv run pytest`.
-  - **#11 grelha+geração — EM CURSO quando parou, por commitar**: app/Services/Solver/SolverClient.php, app/Services/ScheduleGridBuilder.php, Jobs, Admin\ScheduleController, páginas admin/schedules/*, rotas admin+my-schedule. Estado final desconhecido — validar contra o brief da issue #11 no GitHub.
-- ⬜ Por lançar: #12 (edição manual validada), #14 (encadeamento mensal), #16 (trocas), #17 (férias), #18 (ausências), #21 (dashboards+auditoria), #22 (deploy — só falta a parte com credenciais do dono)
+- ✅ **#11 geração+grelha e #15 notificações** — commitados e issues fechadas (suite Laravel: 86 verdes)
+- 🟡 **NO DISCO MAS SEM COMMIT — só a pasta solver/** (#9+#10): o agente estava a terminar quando a sessão parou. Já existem: solver/app/model.py (CP-SAT), main.py com /generate e /validate reais, schemas com SolverParams, testes reescritos. Estado final NÃO confirmado.
+- ⬜ Por lançar: #12 (edição manual validada), #14 (encadeamento mensal), #16 (trocas), #17 (férias), #18 (ausências), #21 (dashboards+auditoria), #22 (deploy — falta só a parte com credenciais do dono; Dockerfile já feito)
 
 ## RETOMA — primeiros passos da próxima sessão (ordem exata)
 
-1. `git status` — confirmar o que está por commitar (ver lista acima).
-2. `cd solver && uv run pytest -q` — se verde, o solver (#9+#10) está completo; rever `solver/app/model.py` por alto e commitar SÓ a pasta solver/ → fechar issues #9 e #10.
-3. `php artisan test --compact` na raiz — avaliar o estado do #11+#15 juntos (partilham routes/web.php; commitar separados PARTE o CI).
-4. Se a suite estiver verde: commit único de #11+#15 (ou dois commits mas push só no fim) → fechar issues #11 e #15. Se falhar: o que falta é do #11 (comparar com o brief na issue GitHub) — completar à mão ou relançar agente com o diff atual como contexto.
-5. `npm run build && vendor/bin/pint --dirty && npm run lint` antes de qualquer push.
-6. Lançar vaga seguinte (agentes Sonnet em paralelo, fronteiras de ficheiros explícitas): **#12 + #14** (dependem do #11) e **#16 + #17** (solver já livre: /swap-candidates e /vacation-impact + fluxos Laravel; ver PRD F5/F6 e ADR-0002). Depois **#18 + #21**. No fim, #22 com o dono presente.
-7. Permissões: já está tudo em bypass (settings.local.json + skipDangerousModePermissionPrompt global) — não deve haver prompts.
+1. `cd solver && uv run pytest -q` — se verde: rever solver/app/model.py por alto, commitar a pasta solver/ e fechar issues #9 e #10. Se falhar/incompleto (comparar com os critérios das issues #9/#10 no GitHub): relançar UM agente Sonnet com o diff atual como contexto para terminar, validar, commitar.
+2. Smoke test de integração real (nada disto foi testado ponta-a-ponta ainda): `scripts/dev.sh`, login admin@demo.test/password, criar escala de mês, gerar (o job chama o solver real em :8001 — para processar a fila em dev: `php artisan queue:work --stop-when-empty`), verificar grelha FEASIBLE, publicar, ver /escala como aad1@demo.test, sino de notificações, export Excel, feed iCal.
+3. Lançar vaga seguinte (agentes Sonnet paralelos, fronteiras explícitas, validação completa obrigatória, sem commits pelos agentes): **#12 + #14** e, como o solver fica livre, **#16 (trocas: /swap-candidates no solver + fluxo Laravel completo com notificações a ambas+admin) + #17 (férias: /vacation-impact + decisão admin)** — ver PRD F5/F6, ADR-0002 e CONTEXT.md. Depois **#18 + #21**. Por fim #22 com o dono (Render+Supabase+DNS).
+4. Permissões: tudo em bypass (settings.local.json + skipDangerousModePermissionPrompt global) — zero prompts esperados.
 
 ## Modo de trabalho: ORQUESTRADOR
 
