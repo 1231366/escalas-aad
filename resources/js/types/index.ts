@@ -2,6 +2,23 @@ import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
     user: User;
+    isAdmin: boolean;
+}
+
+export interface Invitation {
+    id: number;
+    name: string;
+    email: string;
+    role: 'ADMIN' | 'EMPLOYEE';
+    regime: 'DIA' | 'NOITE' | 'HIBRIDO';
+    regime_label: string;
+    contract: 'H37_30' | 'H40';
+    contract_label: string;
+    fixa_noite: boolean;
+    status: 'pending' | 'accepted' | 'expired' | 'revoked';
+    expires_at: string;
+    accept_url: string | null;
+    whatsapp_url: string | null;
 }
 
 export interface BreadcrumbItem {
