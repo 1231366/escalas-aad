@@ -26,14 +26,16 @@ cd solver && uv run pytest
 
 Login demo (após `php artisan migrate:fresh --seed`): `admin@demo.test` / `password`; funcionárias `aad1@demo.test`…`aad12@demo.test` / `password`.
 
-## Estado (última atualização: Fase 1 a meio)
+## Estado (última atualização: FASE 1 COMPLETA ✅)
 
 - ✅ **Fase 0** (issues #1–#3): Laravel + solver + dev.sh + CI (verde no GitHub Actions)
-- ✅ **Issue #4**: schema completo — 8 enums, migrations todas, 12 models, multi-tenancy por global scope (`BelongsToOrganization`), factories, `DemoSeeder` com o cenário da folha
-- ✅ **Issue #5**: auth só por convite (registo aberto removido), middleware `admin`, `auth.isAdmin` no Inertia, rate limiting login
-- 🔨 **Issue #6 EM CURSO**: convites — `StoreInvitationRequest` criado; **falta**: controllers (admin CRUD + aceitação pública), rotas, notificação ao admin, páginas React (admin/invitations/index + página pública de aceitação), testes
-- ⬜ Issues #7 (config regras), #8 (perfil) fecham a Fase 1
-- ⬜ Fases 2 (solver H1–H10, geração, grelha), 3 (notificações, trocas, férias), 4 (Excel, iCal, dashboards, deploy)
+- ✅ **Fase 1** (issues #4–#8): schema multi-tenant completo, auth só por convite, convites com predefinições + WhatsApp + aceitação pública, config de regras (turnos/cobertura/parâmetros), perfil de trabalho + prefs de notificação. **56 testes Pest verdes.**
+- ⬜ **Fase 2 A SEGUIR** (issues #9–#14): solver CP-SAT H1–H3 (#9), H4–H10+soft (#10), geração+grelha admin (#11), edição manual validada (#12), check viabilidade (#13), encadeamento mensal (#14)
+- ⬜ Fase 3 (notificações #15, trocas #16, férias #17, ausências #18), Fase 4 (Excel #19, iCal #20, dashboards #21, deploy #22)
+
+## Modo de trabalho: ORQUESTRADOR
+
+Eu (sessão principal) não escrevo código diretamente: parto cada issue em briefs precisos e lanço **agentes Sonnet** (Agent tool, model sonnet, background), só os necessários, com: contexto+ficheiros a ler, o que construir, fronteiras (que ficheiros NÃO tocar p/ evitar colisões entre agentes paralelos), validação obrigatória (npm run build + php artisan test --compact TODA verde + pint --dirty + npm run lint; solver: uv run pytest) e proibição de commit. Eu revejo os diffs, corro a suite final, commito (SEM Co-Authored-By), fecho a issue com referência ao commit e atualizo este ficheiro.
 
 ## Decisões e preferências do dono (não esquecer)
 
