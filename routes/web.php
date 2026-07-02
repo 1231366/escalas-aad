@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
+use App\Http\Controllers\Admin\ScheduleExportController;
+use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvitationAcceptanceController;
 use Illuminate\Support\Facades\Route;
@@ -35,7 +37,14 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('regras/cobertura', [RuleSettingsController::class, 'updateCoverage'])->name('rules.coverage.update');
     Route::put('regras/parametros', [RuleSettingsController::class, 'updateParameters'])->name('rules.parameters.update');
     Route::put('regras/turnos/{shiftType}', [RuleSettingsController::class, 'updateShiftType'])->name('rules.shift-types.update');
+
+    Route::get('escalas/{schedule}/excel', [ScheduleExportController::class, 'download'])->name('schedules.export');
 });
+
+// Feed iCal privado por funcionária — público, o token é o segredo (PRD F9)
+Route::get('calendario/{token}.ics', [CalendarFeedController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('calendar.feed');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
