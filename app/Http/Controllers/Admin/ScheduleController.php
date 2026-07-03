@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AssignmentOrigin;
 use App\Enums\ScheduleStatus;
 use App\Events\SchedulePublished;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreScheduleRequest;
+use App\Http\Requests\UpdateScheduleCellRequest;
 use App\Jobs\GenerateScheduleJob;
 use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Models\Schedule;
+use App\Models\ShiftAssignment;
 use App\Models\ShiftType;
 use App\Services\ScheduleGridBuilder;
+use App\Services\Solver\SolverClient;
+use App\Services\Solver\SolverUnavailableException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -95,6 +100,8 @@ class ScheduleController extends Controller
             ])->values(),
             'employees' => $grid->employeeRows($schedule, $employees, $dates),
             'day_footers' => $grid->dayFooters($schedule, $shiftTypes, $dates),
+            'cell_violations' => session('cell_violations'),
+            'cell_error' => session('cell_error'),
         ]);
     }
 
@@ -134,5 +141,86 @@ class ScheduleController extends Controller
         AuditLog::record('schedule.archived', $schedule);
 
         return back()->with('success', 'Escala arquivada.');
+    }
+
+    /**
+     * Edição manual de uma célula da grelha (issue #12). Monta a escala
+     * hipotética completa (todas as atribuições atuais + a alteração) e pede
+     * ao solver para a revalidar (ADR-0002) antes de persistir — nunca
+     * reimplementamos H1–H10 aqui. Só permitido em DRAFT.
+     */
+    public function updateCell(UpdateScheduleCellRequest $request, Schedule $schedule, SolverClient $solver): RedirectResponse
+    {
+        abort_unless($schedule->isDraft(), 400, 'Só é possível editar células de uma escala em rascunho.');
+
+        $data = $request->validated();
+
+        abort_if(
+            $data['date'] < $schedule->period_start->toDateString() || $data['date'] > $schedule->period_end->toDateString(),
+            422,
+            'A data está fora do período da escala.'
+        );
+
+        $employee = Employee::query()->findOrFail($data['employee_id']);
+        $shiftType = $data['shift_type_id'] !== null
+            ? ShiftType::query()->findOrFail($data['shift_type_id'])
+            : null;
+
+        $schedule->loadMissing(['assignments.shiftType']);
+
+        $assignments = $schedule->assignments
+            ->mapWithKeys(fn (ShiftAssignment $assignment) => [
+                $assignment->employee_id.'|'.$assignment->date->toDateString() => [
+                    'employee_id' => $assignment->employee_id,
+                    'date' => $assignment->date->toDateString(),
+                    'shift' => $assignment->shiftType?->code,
+                ],
+            ]);
+
+        $assignments->put($employee->id.'|'.$data['date'], [
+            'employee_id' => $employee->id,
+            'date' => $data['date'],
+            'shift' => $shiftType?->code,
+        ]);
+
+        try {
+            $result = $solver->validate($schedule, $assignments->values()->all());
+        } catch (SolverUnavailableException) {
+            return back()->with('cell_error', 'Validação indisponível — solver offline.');
+        }
+
+        if (! ($result['valid'] ?? false)) {
+            return back()->with('cell_violations', $result['violations'] ?? []);
+        }
+
+        // whereDate() em vez de igualdade direta: a coluna é DATE mas o valor
+        // gravado pelo cast Eloquent inclui a hora (00:00:00), enquanto o
+        // Job de geração insere a data "nua" — a comparação tem de aguentar
+        // as duas representações (cf. GenerateScheduleJob).
+        $assignment = ShiftAssignment::query()
+            ->where('schedule_id', $schedule->id)
+            ->where('employee_id', $employee->id)
+            ->whereDate('date', $data['date'])
+            ->first();
+
+        if ($assignment) {
+            $assignment->forceFill(['shift_type_id' => $shiftType?->id, 'origin' => AssignmentOrigin::Manual])->save();
+        } else {
+            ShiftAssignment::create([
+                'schedule_id' => $schedule->id,
+                'employee_id' => $employee->id,
+                'date' => $data['date'],
+                'shift_type_id' => $shiftType?->id,
+                'origin' => AssignmentOrigin::Manual,
+            ]);
+        }
+
+        AuditLog::record('schedule.cell.updated', $schedule, [
+            'employee_id' => $employee->id,
+            'date' => $data['date'],
+            'shift_type_id' => $shiftType?->id,
+        ]);
+
+        return back()->with('success', 'Célula atualizada.');
     }
 }

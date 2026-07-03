@@ -1,6 +1,14 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import {
     type BreadcrumbItem,
@@ -9,9 +17,11 @@ import {
     type ScheduleEmployeeRow,
     type ScheduleMeta,
     type ShiftType,
+    type SolverViolation,
 } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { AlertTriangle, Archive, RefreshCw, Rocket } from 'lucide-react';
+import { useState } from 'react';
 
 interface Props {
     schedule: ScheduleMeta;
@@ -19,9 +29,16 @@ interface Props {
     dates: ScheduleDate[];
     employees: ScheduleEmployeeRow[];
     day_footers: ScheduleDayFooter[];
+    cell_violations?: SolverViolation[] | null;
+    cell_error?: string | null;
 }
 
 const monthLabel = (dateStr: string) => new Date(dateStr).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+
+const shortDate = (dateStr: string) => {
+    const [, month, day] = dateStr.split('-');
+    return `${day}/${month}`;
+};
 
 const infeasibleTitle: Record<string, string> = {
     INFEASIBLE: 'Não foi possível gerar a escala',
@@ -29,19 +46,37 @@ const infeasibleTitle: Record<string, string> = {
     UNAVAILABLE: 'O solver está indisponível',
 };
 
-export default function ScheduleShow({ schedule, shift_types, dates, employees, day_footers }: Props) {
+export default function ScheduleShow({ schedule, shift_types, dates, employees, day_footers, cell_violations, cell_error }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Escalas', href: '/admin/escalas' },
         { title: monthLabel(schedule.period_start), href: `/admin/escalas/${schedule.id}` },
     ];
 
+    const [pendingCell, setPendingCell] = useState<string | null>(null);
+
     const shiftByCode = Object.fromEntries(shift_types.map((s) => [s.code, s]));
+    const employeeNameById = Object.fromEntries(employees.map((e) => [e.employee_id, e.name]));
     const stats = schedule.solver_stats;
     const isInfeasible = !!stats && stats.status !== 'FEASIBLE';
+    const isDraft = schedule.status === 'DRAFT';
 
     const generate = () => router.post(`/admin/escalas/${schedule.id}/gerar`, {}, { preserveScroll: true });
     const publish = () => router.post(`/admin/escalas/${schedule.id}/publicar`, {}, { preserveScroll: true });
     const archive = () => router.post(`/admin/escalas/${schedule.id}/arquivar`, {}, { preserveScroll: true });
+
+    const updateCell = (employeeId: number, date: string, shiftTypeId: number | null) => {
+        const cellKey = `${employeeId}|${date}`;
+
+        router.patch(
+            `/admin/escalas/${schedule.id}/celula`,
+            { employee_id: employeeId, date, shift_type_id: shiftTypeId },
+            {
+                preserveScroll: true,
+                onStart: () => setPendingCell(cellKey),
+                onFinish: () => setPendingCell(null),
+            },
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -106,6 +141,34 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                     </Alert>
                 )}
 
+                {cell_violations && cell_violations.length > 0 && (
+                    <Alert variant="destructive">
+                        <AlertTriangle className="size-4" />
+                        <AlertTitle>Alteração rejeitada pelo solver</AlertTitle>
+                        <AlertDescription>
+                            <ul className="list-disc space-y-1 pl-5">
+                                {cell_violations.map((violation, i) => (
+                                    <li key={i}>
+                                        <span className="font-mono font-semibold">{violation.rule}</span> — {violation.message}
+                                        {violation.date && ` a ${shortDate(violation.date)}`}
+                                        {violation.employee_id != null &&
+                                            employeeNameById[violation.employee_id] &&
+                                            ` para ${employeeNameById[violation.employee_id]}`}
+                                    </li>
+                                ))}
+                            </ul>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {cell_error && (
+                    <Alert variant="destructive">
+                        <AlertTriangle className="size-4" />
+                        <AlertTitle>Não foi possível validar a alteração</AlertTitle>
+                        <AlertDescription>{cell_error}</AlertDescription>
+                    </Alert>
+                )}
+
                 <div className="overflow-x-auto rounded-xl border">
                     <table className="w-full border-collapse text-sm">
                         <thead>
@@ -141,21 +204,63 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                                     <td className="bg-background sticky left-0 z-10 border-r p-2 font-medium">{employee.name}</td>
                                     {employee.cells.map((cell) => {
                                         const shiftType = cell.shift_code ? shiftByCode[cell.shift_code] : null;
+                                        const cellKey = `${employee.employee_id}|${cell.date}`;
+                                        const isPending = pendingCell === cellKey;
+
+                                        const cellBadge = shiftType ? (
+                                            <span
+                                                className="block rounded py-1 text-xs font-semibold text-white"
+                                                style={{ backgroundColor: shiftType.color }}
+                                            >
+                                                {shiftType.code}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground bg-muted/40 block rounded py-1 text-xs">
+                                                {cell.is_day_off ? 'F' : ''}
+                                            </span>
+                                        );
+
+                                        if (!isDraft) {
+                                            return (
+                                                <td key={cell.date} className="p-1 text-center">
+                                                    {cellBadge}
+                                                </td>
+                                            );
+                                        }
 
                                         return (
                                             <td key={cell.date} className="p-1 text-center">
-                                                {shiftType ? (
-                                                    <span
-                                                        className="block rounded py-1 text-xs font-semibold text-white"
-                                                        style={{ backgroundColor: shiftType.color }}
-                                                    >
-                                                        {shiftType.code}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted-foreground bg-muted/40 block rounded py-1 text-xs">
-                                                        {cell.is_day_off ? 'F' : ''}
-                                                    </span>
-                                                )}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isPending}
+                                                            aria-label={`Editar turno de ${employee.name} em ${cell.date}`}
+                                                            className="hover:ring-ring w-full cursor-pointer rounded disabled:cursor-wait disabled:opacity-50 hover:ring-2"
+                                                        >
+                                                            {cellBadge}
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="center">
+                                                        <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                                                            {employee.name} — {shortDate(cell.date)}
+                                                        </DropdownMenuLabel>
+                                                        <DropdownMenuSeparator />
+                                                        {shift_types.map((st) => (
+                                                            <DropdownMenuItem
+                                                                key={st.id}
+                                                                onSelect={() => updateCell(employee.employee_id, cell.date, st.id)}
+                                                            >
+                                                                <span className="size-2 rounded-full" style={{ backgroundColor: st.color }} />
+                                                                {st.code} — {st.name}
+                                                            </DropdownMenuItem>
+                                                        ))}
+                                                        <DropdownMenuItem onSelect={() => updateCell(employee.employee_id, cell.date, null)}>
+                                                            <span className="bg-muted-foreground/40 size-2 rounded-full" />
+                                                            Folga
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </td>
                                         );
                                     })}

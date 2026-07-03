@@ -1,14 +1,18 @@
 <?php
 
+use App\Http\Controllers\Admin\AbsenceController;
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
 use App\Http\Controllers\Admin\ScheduleController as AdminScheduleController;
 use App\Http\Controllers\Admin\ScheduleExportController;
+use App\Http\Controllers\Admin\VacationController as AdminVacationController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvitationAcceptanceController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\VacationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -35,6 +39,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('notificacoes', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notificacoes/{id}/lida', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('notificacoes/lidas', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+
+    // Pedidos de férias da funcionária — impacto na cobertura calculado pelo solver (PRD F6).
+    Route::get('ferias', [VacationController::class, 'index'])->name('vacations.index');
+    Route::post('ferias', [VacationController::class, 'store'])->name('vacations.store');
+    Route::post('ferias/{vacationRequest}/cancelar', [VacationController::class, 'cancel'])->name('vacations.cancel');
 });
 
 // Portal de administração
@@ -58,6 +67,22 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('escalas/{schedule}/gerar', [AdminScheduleController::class, 'regenerate'])->name('schedules.regenerate');
     Route::post('escalas/{schedule}/publicar', [AdminScheduleController::class, 'publish'])->name('schedules.publish');
     Route::post('escalas/{schedule}/arquivar', [AdminScheduleController::class, 'archive'])->name('schedules.archive');
+    // Edição manual de uma célula da grelha com revalidação síncrona pelo solver (issue #12, ADR-0002).
+    Route::patch('escalas/{schedule}/celula', [AdminScheduleController::class, 'updateCell'])->name('schedules.cell.update');
+
+    // Auditoria — histórico de mutações da org (PRD F10).
+    Route::get('auditoria', [AuditLogController::class, 'index'])->name('audit.index');
+
+    // Decisão de pedidos de férias com o impacto na cobertura à vista (PRD F6).
+    Route::get('ferias', [AdminVacationController::class, 'index'])->name('vacations.index');
+    Route::post('ferias/{vacationRequest}/aprovar', [AdminVacationController::class, 'approve'])->name('vacations.approve');
+    Route::post('ferias/{vacationRequest}/recusar', [AdminVacationController::class, 'decline'])->name('vacations.decline');
+
+    // Ausências (baixa/falta): aviso de buracos de cobertura + re-otimização parcial (issue #18, PRD F6).
+    Route::get('ausencias', [AbsenceController::class, 'index'])->name('absences.index');
+    Route::post('ausencias', [AbsenceController::class, 'store'])->name('absences.store');
+    Route::delete('ausencias/{absence}', [AbsenceController::class, 'destroy'])->name('absences.destroy');
+    Route::post('ausencias/{absence}/reotimizar', [AbsenceController::class, 'reoptimize'])->name('absences.reoptimize');
 });
 
 // Feed iCal privado por funcionária — público, o token é o segredo (PRD F9)

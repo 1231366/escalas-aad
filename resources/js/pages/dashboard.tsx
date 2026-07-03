@@ -1,11 +1,17 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type Viability } from '@/types';
-import { Head } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Moon, XCircle } from 'lucide-react';
+import {
+    type AdminDashboardStats,
+    type BreadcrumbItem,
+    type EmployeeDashboardStats,
+    type EquityEmployee,
+    type ShiftType,
+    type Viability,
+} from '@/types';
+import { Head, Link } from '@inertiajs/react';
+import { AlertTriangle, CalendarCheck, CheckCircle2, ClipboardList, Moon, Plane, Repeat, UserPlus, XCircle } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -16,36 +22,278 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface Props {
     viability: Viability | null;
+    admin_stats: AdminDashboardStats | null;
+    employee_stats: EmployeeDashboardStats | null;
+    shift_types: ShiftType[];
 }
 
-export default function Dashboard({ viability }: Props) {
+export default function Dashboard({ viability, admin_stats, employee_stats, shift_types }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                {viability ? (
-                    <ViabilityCard viability={viability} />
-                ) : (
+                {admin_stats ? (
                     <>
-                        <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                            <PlaceholderBox />
-                            <PlaceholderBox />
-                            <PlaceholderBox />
-                        </div>
-                        <div className="border-sidebar-border/70 dark:border-sidebar-border relative min-h-[100vh] flex-1 rounded-xl border md:min-h-min">
-                            <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
-                        </div>
+                        {viability && <ViabilityCard viability={viability} />}
+                        <ThisMonthCard stats={admin_stats} />
+                        <EquityCard equity={admin_stats.equity} />
                     </>
+                ) : (
+                    employee_stats && <EmployeeDashboard stats={employee_stats} shiftTypes={shift_types} />
                 )}
             </div>
         </AppLayout>
     );
 }
 
-function PlaceholderBox() {
+const monthScheduleStatus: Record<string, { label: string; className: string }> = {
+    DRAFT: { label: 'Rascunho', className: 'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' },
+    PUBLISHED: { label: 'Publicada', className: 'border-transparent bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300' },
+    ARCHIVED: { label: 'Arquivada', className: 'border-transparent bg-muted text-muted-foreground' },
+};
+
+function ThisMonthCard({ stats }: { stats: AdminDashboardStats }) {
+    const { schedule, pending_swaps, pending_vacations, pending_invitations } = stats.this_month;
+    const status = schedule ? monthScheduleStatus[schedule.status] : null;
+
     return (
-        <div className="border-sidebar-border/70 dark:border-sidebar-border relative aspect-video overflow-hidden rounded-xl border">
-            <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
+        <Card>
+            <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+                <div>
+                    <CardTitle>Este mês</CardTitle>
+                    <CardDescription>Estado da escala e pedidos à espera de decisão.</CardDescription>
+                </div>
+                {status && <Badge className={cn('gap-1.5', status.className)}>{status.label}</Badge>}
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-4">
+                <div className="rounded-lg border p-4">
+                    <p className="text-muted-foreground text-xs">Escala do mês</p>
+                    {schedule ? (
+                        <>
+                            <p className="text-lg font-semibold capitalize">{schedule.label}</p>
+                            <Link href={`/admin/escalas/${schedule.id}`} className="text-primary text-xs hover:underline">
+                                Ver escala
+                            </Link>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm">Ainda não existe</p>
+                            <Link href="/admin/escalas" className="text-primary text-xs hover:underline">
+                                Criar escala
+                            </Link>
+                        </>
+                    )}
+                </div>
+
+                <StatTile icon={Repeat} label="Trocas pendentes" value={pending_swaps} />
+                <StatTile icon={Plane} label="Férias pendentes" value={pending_vacations} />
+                <StatTile icon={UserPlus} label="Convites pendentes" value={pending_invitations} href="/admin/convites" />
+            </CardContent>
+        </Card>
+    );
+}
+
+function StatTile({ icon: Icon, label, value, href }: { icon: typeof Repeat; label: string; value: number; href?: string }) {
+    const content = (
+        <div className="rounded-lg border p-4">
+            <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <Icon className="size-3.5" />
+                {label}
+            </div>
+            <p className="text-lg font-semibold">{value}</p>
+        </div>
+    );
+
+    return href ? (
+        <Link href={href} className="block transition-opacity hover:opacity-80">
+            {content}
+        </Link>
+    ) : (
+        content
+    );
+}
+
+function EquityCard({ equity }: { equity: AdminDashboardStats['equity'] }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Equidade</CardTitle>
+                <CardDescription>
+                    {equity
+                        ? `Horas, fins de semana, folgas e banco de horas na escala de ${equity.schedule.label} (última publicada).`
+                        : 'Horas, fins de semana, folgas e banco de horas da última escala publicada.'}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {equity && equity.employees.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                        <div className="text-muted-foreground hidden gap-3 px-1 text-xs sm:flex">
+                            <div className="w-36 shrink-0">Funcionária</div>
+                            <div className="flex-1">Horas totais</div>
+                            <div className="w-20 shrink-0 text-right">Fins de semana</div>
+                            <div className="w-16 shrink-0 text-right">Folgas</div>
+                            <div className="w-20 shrink-0 text-right">Banco de horas</div>
+                        </div>
+                        {equity.employees.map((employee) => (
+                            <EquityRow
+                                key={employee.employee_id}
+                                employee={employee}
+                                isMax={employee.employee_id === equity.max_hours_employee_id}
+                                isMin={employee.employee_id === equity.min_hours_employee_id}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-muted-foreground rounded-xl border p-8 text-center text-sm">
+                        Ainda não há uma escala publicada. Quando publicares a primeira, a equidade da equipa aparece aqui.
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function EquityRow({ employee, isMax, isMin }: { employee: EquityEmployee; isMax: boolean; isMin: boolean }) {
+    const balancePositive = employee.hour_bank_balance >= 0;
+
+    return (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex w-36 shrink-0 items-center gap-1.5 truncate text-sm font-medium">
+                <span className="truncate">{employee.name}</span>
+                {isMax && (
+                    <Badge variant="outline" className="border-amber-300 px-1 text-[10px] text-amber-700 dark:text-amber-400">
+                        máx
+                    </Badge>
+                )}
+                {isMin && (
+                    <Badge variant="outline" className="border-sky-300 px-1 text-[10px] text-sky-700 dark:text-sky-400">
+                        mín
+                    </Badge>
+                )}
+            </div>
+
+            <div className="flex flex-1 items-center gap-2">
+                <div className="bg-muted h-2.5 flex-1 rounded">
+                    <div
+                        className="bg-primary h-2.5 rounded-r"
+                        style={{ width: `${Math.max(employee.bar_pct, 2)}%` }}
+                        role="img"
+                        aria-label={`${employee.total_hours} horas`}
+                    />
+                </div>
+                <span className="w-14 shrink-0 text-right text-sm tabular-nums">{employee.total_hours}h</span>
+            </div>
+
+            <div className="text-muted-foreground w-20 shrink-0 text-right text-xs tabular-nums sm:text-sm">
+                {employee.weekends_worked}
+            </div>
+            <div className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums sm:text-sm">{employee.days_off}</div>
+            <div
+                className={cn(
+                    'w-20 shrink-0 text-right text-xs font-medium tabular-nums sm:text-sm',
+                    balancePositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400',
+                )}
+            >
+                {employee.hour_bank_label}
+            </div>
+        </div>
+    );
+}
+
+function EmployeeDashboard({ stats, shiftTypes }: { stats: EmployeeDashboardStats; shiftTypes: ShiftType[] }) {
+    const shiftByCode = Object.fromEntries(shiftTypes.map((s) => [s.code, s]));
+    const nextShiftType = stats.next_shift ? shiftByCode[stats.next_shift.shift_code] : null;
+
+    return (
+        <div className="grid gap-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Próximo turno</CardTitle>
+                    <CardDescription>O teu próximo turno na escala publicada.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {stats.next_shift ? (
+                        <div className="flex items-center gap-3 rounded-lg border p-4">
+                            <span
+                                className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                                style={{ backgroundColor: nextShiftType?.color ?? '#71717a' }}
+                            >
+                                {stats.next_shift.shift_code}
+                            </span>
+                            <div>
+                                <p className="text-lg font-semibold capitalize">
+                                    {new Date(stats.next_shift.date).toLocaleDateString('pt-PT', {
+                                        weekday: 'long',
+                                        day: 'numeric',
+                                        month: 'long',
+                                    })}
+                                </p>
+                                <p className="text-muted-foreground text-sm">{nextShiftType?.name ?? stats.next_shift.shift_code}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-muted-foreground rounded-xl border p-8 text-center text-sm">
+                            Sem turnos atribuídos nos próximos dias na escala publicada.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>A minha semana</CardTitle>
+                    <CardDescription>Semana atual, da escala publicada.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {stats.current_week.length > 0 ? (
+                        <div className="grid grid-cols-7 gap-2">
+                            {stats.current_week.map((cell) => {
+                                const shiftType = cell.shift_code ? shiftByCode[cell.shift_code] : null;
+
+                                return (
+                                    <div
+                                        key={cell.date}
+                                        className={cn(
+                                            'flex flex-col items-center gap-1 rounded-lg border p-2',
+                                            cell.is_today && 'border-primary',
+                                        )}
+                                    >
+                                        <span className="text-muted-foreground text-xs">{cell.weekday_label}</span>
+                                        <span className="text-sm font-medium">{cell.day}</span>
+                                        {shiftType ? (
+                                            <span
+                                                className="w-full rounded py-1 text-center text-xs font-semibold text-white"
+                                                style={{ backgroundColor: shiftType.color }}
+                                            >
+                                                {shiftType.code}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground bg-muted/40 w-full rounded py-1 text-center text-xs">
+                                                {cell.is_day_off ? 'F' : '—'}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="text-muted-foreground rounded-xl border p-8 text-center text-sm">
+                            Ainda não há uma escala publicada para esta semana.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Os meus pedidos</CardTitle>
+                    <CardDescription>Pedidos teus à espera de decisão.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                    <StatTile icon={ClipboardList} label="Trocas pendentes" value={stats.pending_swaps} />
+                    <StatTile icon={CalendarCheck} label="Férias pendentes" value={stats.pending_vacations} />
+                </CardContent>
+            </Card>
         </div>
     );
 }

@@ -45,6 +45,83 @@ class SolverClient
         return $this->post('/validate', $payload);
     }
 
+    /**
+     * Testa o impacto de um pedido de férias na cobertura (PRD F6). Só faz
+     * sentido pedir ao solver se já houver uma escala PUBLISHED cobrindo
+     * (parte de) o intervalo — sem isso não há nada para "partir" ainda, e
+     * evitamos uma chamada HTTP desnecessária.
+     */
+    public function vacationImpact(Employee $employee, string $start, string $end): array
+    {
+        $schedule = Schedule::query()
+            ->withoutGlobalScopes()
+            ->where('organization_id', $employee->organization_id)
+            ->where('status', ScheduleStatus::Published)
+            ->where('period_start', '<=', $end)
+            ->where('period_end', '>=', $start)
+            ->orderBy('period_start')
+            ->first();
+
+        if (! $schedule) {
+            return ['ok' => true, 'issues' => [], 'no_schedule' => true];
+        }
+
+        $payload = $this->buildPayload($schedule);
+        $payload['assignments'] = ShiftAssignment::query()
+            ->where('schedule_id', $schedule->id)
+            ->with(['shiftType' => fn ($query) => $query->withoutGlobalScopes()])
+            ->get()
+            ->map(fn (ShiftAssignment $assignment) => [
+                'employee_id' => $assignment->employee_id,
+                'date' => $assignment->date->toDateString(),
+                'shift' => $assignment->shiftType?->code,
+            ])
+            ->values()
+            ->all();
+        $payload['employee_id'] = $employee->id;
+        $payload['start'] = $start;
+        $payload['end'] = $end;
+
+        return $this->post('/vacation-impact', $payload);
+    }
+
+    /**
+     * Candidatas a troca (PRD F5): colegas com quem $requester pode trocar o
+     * turno de $date sem violar nenhuma hard. Resposta: {candidates:
+     * [{employee_id, shift}]} — "shift" é o turno que $requester passaria a
+     * ter (o turno atual da colega nesse dia).
+     */
+    public function swapCandidates(Schedule $schedule, Employee $requester, string $date): array
+    {
+        $payload = $this->buildPayload($schedule);
+        $payload['assignments'] = $this->currentAssignments($schedule);
+        $payload['requester_employee_id'] = $requester->id;
+        $payload['date'] = $date;
+
+        return $this->post('/swap-candidates', $payload);
+    }
+
+    /**
+     * Estado atual completo da escala no formato "assignments" do solver.
+     * Reutilizado por swapCandidates() e por quem precisa de revalidar uma
+     * troca (SwapController) sem duplicar a leitura da BD.
+     *
+     * @return list<array{employee_id:int,date:string,shift:?string}>
+     */
+    public function currentAssignments(Schedule $schedule): array
+    {
+        return $schedule->assignments()
+            ->with(['shiftType' => fn ($query) => $query->withoutGlobalScopes()])
+            ->get()
+            ->map(fn (ShiftAssignment $assignment) => [
+                'employee_id' => $assignment->employee_id,
+                'date' => $assignment->date->toDateString(),
+                'shift' => $assignment->shiftType?->code,
+            ])
+            ->values()
+            ->all();
+    }
+
     private function post(string $path, array $payload): array
     {
         try {

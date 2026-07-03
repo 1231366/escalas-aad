@@ -20,6 +20,7 @@ class NotificationPrefsUpdateRequest extends FormRequest
             'email.schedule_published' => ['sometimes', 'boolean'],
             'email.swap_request' => ['sometimes', 'boolean'],
             'email.swap_decided' => ['sometimes', 'boolean'],
+            'email.vacation_requested' => ['sometimes', 'boolean'],
             'email.vacation_decided' => ['sometimes', 'boolean'],
         ];
     }

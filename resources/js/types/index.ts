@@ -149,6 +149,145 @@ export interface ScheduleDayFooter {
     shifts: ScheduleDayFooterShift[];
 }
 
+export interface DashboardMonthSchedule {
+    id: number;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    label: string;
+}
+
+export interface DashboardThisMonth {
+    schedule: DashboardMonthSchedule | null;
+    pending_swaps: number;
+    pending_vacations: number;
+    pending_invitations: number;
+}
+
+export interface EquityEmployee {
+    employee_id: number;
+    name: string;
+    total_hours: number;
+    weekends_worked: number;
+    days_off: number;
+    contractual_hours: number;
+    hour_bank_balance: number;
+    hour_bank_label: string;
+    bar_pct: number;
+}
+
+export interface DashboardEquity {
+    schedule: { id: number; label: string };
+    employees: EquityEmployee[];
+    max_hours_employee_id: number | null;
+    min_hours_employee_id: number | null;
+}
+
+export interface AdminDashboardStats {
+    this_month: DashboardThisMonth;
+    equity: DashboardEquity | null;
+}
+
+export interface DashboardNextShift {
+    date: string;
+    shift_code: string;
+}
+
+export interface DashboardWeekCell {
+    date: string;
+    day: number;
+    weekday_label: string;
+    is_weekend: boolean;
+    is_today: boolean;
+    shift_code: string | null;
+    is_day_off: boolean;
+}
+
+export interface EmployeeDashboardStats {
+    next_shift: DashboardNextShift | null;
+    current_week: DashboardWeekCell[];
+    pending_swaps: number;
+    pending_vacations: number;
+}
+
+export interface VacationImpact {
+    ok: boolean;
+    issues: SolverViolation[];
+    no_schedule?: boolean;
+}
+
+export interface VacationRequestItem {
+    id: number;
+    start_date: string;
+    end_date: string;
+    status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED';
+    note: string | null;
+    decided_at: string | null;
+    created_at: string;
+}
+
+export interface AdminVacationRequestItem extends VacationRequestItem {
+    employee_id: number;
+    employee_name: string;
+    impact: VacationImpact | null;
+    decided_by_name: string | null;
+}
+
+export interface AbsenceEmployeeOption {
+    id: number;
+    name: string;
+}
+
+export interface AbsenceCoverageGap {
+    date: string;
+    shift_code: string;
+    before: number;
+    after: number;
+    required: number;
+}
+
+export interface Absence {
+    id: number;
+    employee_id: number;
+    employee_name: string;
+    start_date: string;
+    end_date: string;
+    type: 'SICK' | 'UNJUSTIFIED' | 'OTHER';
+    type_label: string;
+    note: string | null;
+    coverage_gaps: AbsenceCoverageGap[];
+    schedule_id: number | null;
+    reoptimizable_from: string | null;
+    reoptimized_at: string | null;
+    reoptimization_status: 'FEASIBLE' | 'INFEASIBLE' | 'UNAVAILABLE' | null;
+    reoptimization_conflicts: SolverViolation[] | null;
+}
+
+export interface AuditLogEntry {
+    id: number;
+    created_at: string | null;
+    actor_name: string;
+    action: string;
+    subject_type: string | null;
+    subject_id: number | null;
+    changes_summary: string | null;
+}
+
+export interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
+
+export interface Paginated<T> {
+    data: T[];
+    links: PaginationLink[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number | null;
+    to: number | null;
+}
+
 export interface BreadcrumbItem {
     title: string;
     href: string;

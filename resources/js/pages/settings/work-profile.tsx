@@ -35,6 +35,7 @@ interface NotificationPrefs {
         schedule_published?: boolean;
         swap_request?: boolean;
         swap_decided?: boolean;
+        vacation_requested?: boolean;
         vacation_decided?: boolean;
     };
 }
@@ -49,6 +50,7 @@ const notificationOptions: NotificationOption[] = [
     { key: 'schedule_published', label: 'Escala publicada' },
     { key: 'swap_request', label: 'Pedido de troca recebido' },
     { key: 'swap_decided', label: 'Troca aceite/recusada' },
+    { key: 'vacation_requested', label: 'Pedido de férias recebido (admins)' },
     { key: 'vacation_decided', label: 'Férias decididas' },
 ];
 
@@ -65,6 +67,7 @@ export default function WorkProfile({
             schedule_published: notificationPrefs.email?.schedule_published ?? true,
             swap_request: notificationPrefs.email?.swap_request ?? true,
             swap_decided: notificationPrefs.email?.swap_decided ?? true,
+            vacation_requested: notificationPrefs.email?.vacation_requested ?? true,
             vacation_decided: notificationPrefs.email?.vacation_decided ?? true,
         },
     });

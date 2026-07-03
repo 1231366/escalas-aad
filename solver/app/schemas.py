@@ -1,7 +1,8 @@
 """Contratos de request/response do solver (ADR-0002).
 
 O solver é stateless: cada pedido traz os dados e a config da organização.
-IDs de regras (H1–H10, S1–S6) conforme CONTEXT.md na raiz do repo.
+IDs de regras (H1–H5, H7–H10, S1–S8; H6 reclassificado para S7 — ADR-0006)
+conforme CONTEXT.md na raiz do repo.
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ class RuleConfig(BaseModel):
     hour_bank_weekly_tolerance: float = 4.0  # H7
     max_consecutive_work_days: int = 6  # H9
     ff_window_weeks: int = 7  # H5
-    ff_monthly: bool = True  # H6
+    ff_monthly: bool = True  # S7 (preferível, ex-H6 — ver ADR-0006)
     shift_hours: float = 8.0
     forbidden_transitions: list[tuple[Shift, Shift]] = [
         (Shift.N, Shift.M),
@@ -65,6 +66,13 @@ class Assignment(BaseModel):
     shift: Shift | None = None  # None = folga (F)
 
 
+class SolverParams(BaseModel):
+    """Parâmetros de execução do CP-SAT (não fazem parte das regras de negócio)."""
+
+    max_time_in_seconds: float = 55.0
+    num_search_workers: int = 8
+
+
 class GenerateRequest(BaseModel):
     period_start: dt.date
     period_end: dt.date
@@ -76,6 +84,7 @@ class GenerateRequest(BaseModel):
         default=[],
         description="Últimos dias do mês anterior, para H3/H5/H9 atravessarem a fronteira",
     )
+    solver_params: SolverParams = Field(default_factory=SolverParams)
 
 
 class Violation(BaseModel):
@@ -106,3 +115,35 @@ class ValidateRequest(GenerateRequest):
 class ValidateResponse(BaseModel):
     valid: bool
     violations: list[Violation] = []
+
+
+class SwapCandidatesRequest(ValidateRequest):
+    """Pedido de candidatas a troca (ADR-0002): mesmos campos do
+    ValidateRequest (inputs + escala completa do período) mais quem pede a
+    troca e em que dia."""
+
+    requester_employee_id: int
+    date: dt.date
+
+
+class SwapCandidate(BaseModel):
+    employee_id: int
+    shift: Shift | None = None  # turno que a colega tinha antes da troca
+
+
+class SwapCandidatesResponse(BaseModel):
+    candidates: list[SwapCandidate] = []
+
+
+class VacationImpactRequest(ValidateRequest):
+    """Pedido de teste de impacto de férias (ADR-0002): mesmos campos do
+    ValidateRequest mais a pessoa e o intervalo de férias a simular."""
+
+    employee_id: int
+    start: dt.date
+    end: dt.date
+
+
+class VacationImpactResponse(BaseModel):
+    ok: bool
+    issues: list[Violation] = []
