@@ -111,7 +111,11 @@
       "Bash(git -C /Users/t/Desktop/escalas-aad status)",
       "Bash(git *)",
       "Bash(python3 -c 'import ast,sys *)",
-      "Bash(git commit -q -m 'Fase 2: solver completo \\(regras ADR-0006 + swap-candidates + vacation-impact\\); Fase 3: férias, ausências+reotimização parcial \\(trabalho parcial de trocas incluído\\) *)"
+      "Bash(git commit -q -m 'Fase 2: solver completo \\(regras ADR-0006 + swap-candidates + vacation-impact\\); Fase 3: férias, ausências+reotimização parcial \\(trabalho parcial de trocas incluído\\) *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/login)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/)",
+      "Bash(sed -i '' 's#^APP_URL=http://localhost$#APP_URL=http://localhost:8000#' .env .env.example)",
+      "Bash(git commit -q -m 'Corrigir APP_URL sem porta \\(link de convite quebrado\\); redesenhar auth split-layout com marca; nova gestão de funcionárias sem acesso *)"
     ],
     "defaultMode": "bypassPermissions"
   }

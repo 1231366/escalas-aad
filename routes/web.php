@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AbsenceController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
 use App\Http\Controllers\Admin\ScheduleController as AdminScheduleController;
@@ -48,6 +49,12 @@ Route::middleware(['auth'])->group(function () {
 
 // Portal de administração
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    // Funcionárias sem conta de acesso — mockar a escala sem convidar ninguém (PRD).
+    Route::get('funcionarios', [EmployeeController::class, 'index'])->name('employees.index');
+    Route::post('funcionarios', [EmployeeController::class, 'store'])->name('employees.store');
+    Route::put('funcionarios/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
+    Route::delete('funcionarios/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+
     Route::get('convites', [InvitationController::class, 'index'])->name('invitations.index');
     Route::post('convites', [InvitationController::class, 'store'])->name('invitations.store');
     Route::post('convites/{invitation}/reenviar', [InvitationController::class, 'resend'])->name('invitations.resend');

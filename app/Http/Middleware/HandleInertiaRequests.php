@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,12 +35,16 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $highlights = [
+            'Escalas geradas automaticamente, sempre a cumprir as regras.',
+            'Trocas entre colegas validadas antes do pedido.',
+            'Notificações e calendário sincronizado com Google e Apple.',
+        ];
 
         return array_merge(parent::share($request), [
             ...parent::share($request),
             'name' => config('app.name'),
-            'quote' => ['message' => trim($message), 'author' => trim($author)],
+            'quote' => ['message' => $highlights[array_rand($highlights)], 'author' => 'Escalas AAD'],
             'auth' => [
                 'user' => $request->user(),
                 'isAdmin' => (bool) $request->user()?->isAdmin(),
