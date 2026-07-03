@@ -74,7 +74,7 @@ class ScheduleController extends Controller
     {
         $dates = $grid->dates($schedule);
         $employees = Employee::query()->active()->orderBy('name')->get();
-        $shiftTypes = ShiftType::query()->orderBy('code')->get();
+        $shiftTypes = ShiftType::query()->orderedByShift()->get();
 
         return Inertia::render('admin/schedules/show', [
             'schedule' => [

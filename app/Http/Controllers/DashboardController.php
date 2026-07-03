@@ -38,7 +38,7 @@ class DashboardController extends Controller
             'viability' => $isAdmin ? $viabilityCheck->analyze() : null,
             'admin_stats' => $isAdmin ? $this->adminStats($grid) : null,
             'employee_stats' => $isAdmin ? null : $this->employeeStats($user, $grid),
-            'shift_types' => $isAdmin ? [] : ShiftType::query()->orderBy('code')->get()
+            'shift_types' => $isAdmin ? [] : ShiftType::query()->orderedByShift()->get()
                 ->map(fn (ShiftType $shiftType) => [
                     'id' => $shiftType->id,
                     'code' => $shiftType->code,

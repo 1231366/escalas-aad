@@ -18,7 +18,7 @@ class RuleSettingsController extends Controller
 {
     public function index(): Response
     {
-        $shiftTypes = ShiftType::query()->orderBy('code')->get();
+        $shiftTypes = ShiftType::query()->orderedByShift()->get();
 
         $coverageRules = CoverageRule::query()->get();
 

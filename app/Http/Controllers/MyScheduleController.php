@@ -53,7 +53,7 @@ class MyScheduleController extends Controller
 
         $dates = $grid->dates($schedule);
         $employees = Employee::query()->active()->orderBy('name')->get();
-        $shiftTypes = ShiftType::query()->orderBy('code')->get();
+        $shiftTypes = ShiftType::query()->orderedByShift()->get();
 
         $weekStart = Carbon::today()->startOfWeek()->toDateString();
         $weekEnd = Carbon::today()->endOfWeek()->toDateString();
