@@ -35,6 +35,14 @@ Login demo (após `php artisan migrate:fresh --seed`): `admin@demo.test` / `pass
 - 🟡 **NO DISCO MAS SEM COMMIT — só a pasta solver/** (#9+#10): o agente estava a terminar quando a sessão parou. Já existem: solver/app/model.py (CP-SAT), main.py com /generate e /validate reais, schemas com SolverParams, testes reescritos. Estado final NÃO confirmado.
 - ⬜ Por lançar: #12 (edição manual validada), #14 (encadeamento mensal), #16 (trocas), #17 (férias), #18 (ausências), #21 (dashboards+auditoria), #22 (deploy — falta só a parte com credenciais do dono; Dockerfile já feito)
 
+## Atualização 2026-07-03 — quase tudo fechado, faltam trocas (#16) e confirmar ausências (#18)
+
+Fechadas nesta ronda: #9, #10 (solver completo, 26 testes), #12 (edição de células), #14 (encadeamento mensal — coberto pelo #11), #17 (férias), #21 (dashboards+auditoria). Suite Laravel: **113 testes verdes**. Regra de negócio mudou (ADR-0006): FF mensal é preferência (S7), só a janela de 7 semanas é obrigatória (H5), e há equidade do nº de FF entre pessoas (S8) — resolveu a infeasibilidade da semana isolada.
+
+**#18 ausências — código presente mas SEM TESTES**, o agente foi cortado por limite de sessão a meio: existem `AbsenceController`, `AbsenceGapCalculator`, `PartialReoptimizer`, `ReoptimizeScheduleJob`, migration de colunas, página `admin/absences/index.tsx`, rotas registadas. Falta: `tests/Feature/AbsenceTest.php` e validar manualmente o fluxo (criar ausência → ver buracos → re-otimizar). Sintaxe PHP confirmada OK.
+
+**#16 trocas — INCOMPLETO de verdade**, cortado muito cedo: existem só `SwapController`, `Admin\SwapController`, `StoreSwapRequest`, notificações Swap*, `Services/Swap/`. FALTAM: rotas em `routes/web.php`, páginas React (`swaps/create`, `swaps/index`, `admin/swaps/index`), botão "Trocar" em `schedule/my.tsx`, e `tests/Feature/SwapTest.php`. O solver já tem `/swap-candidates` pronto e testado. Retomar relançando um agente com o brief original da issue #16 (está no histórico) + "revê o que já existe em app/Http/Controllers/{Swap,Admin/Swap}Controller.php e app/Services/Swap/ antes de começar".
+
 ## RETOMA — primeiros passos da próxima sessão (ordem exata)
 
 1. `cd solver && uv run pytest -q` — se verde: rever solver/app/model.py por alto, commitar a pasta solver/ e fechar issues #9 e #10. Se falhar/incompleto (comparar com os critérios das issues #9/#10 no GitHub): relançar UM agente Sonnet com o diff atual como contexto para terminar, validar, commitar.
