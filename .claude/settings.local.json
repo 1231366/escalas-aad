@@ -103,7 +103,8 @@
       "Bash(pkill -9 -f \"artisan test\")",
       "Bash(pkill -9 -f pest)",
       "Bash(cd *)",
-      "Bash(git commit -q -m 'Fase 2+3: geração/grelha de escalas \\(#11\\) + notificações email e sino \\(#15\\) *)"
+      "Bash(git commit -q -m 'Fase 2+3: geração/grelha de escalas \\(#11\\) + notificações email e sino \\(#15\\) *)",
+      "Bash(git commit -q -m 'ADR-0006: FF mensal passa a preferência \\(S7\\) + equidade do nº de FF \\(S8\\); H5 só janelas completas *)"
     ],
     "defaultMode": "bypassPermissions"
   }

@@ -14,7 +14,7 @@ Glossário e linguagem partilhada do projeto. Usar **sempre** estes termos em c�
 - **Elegível noite** — funcionária que *pode* entrar no pool de noite (`elegivel_noite`). Diferente de fixa.
 - **Padrão diurno** — sequência de referência `MMMFTTT` (soft, orientação).
 - **Padrão de noite** — sequência `NNNFF` (soft, orientação).
-- **Regra das 2 folgas** — 2 folgas seguidas ("FF") obrigatórias 1×/mês **e** a cada 7 semanas (janela deslizante).
+- **Regra das 2 folgas** — 2 folgas seguidas ("FF") obrigatórias a cada 7 semanas (janela deslizante completa). Ter FF 1×/mês é **preferência**, não obrigação, e o nº de FF deve ser equitativo entre pessoas (ADR-0006).
 - **Matriz de descanso** — transições dia-a-dia permitidas pelas 11h de descanso: proibido N→M, N→T, T→M. Depois de N: só N ou F.
 - **Contrato** — carga semanal: `H37_30` (37h30) ou `H40` (40h). Individual por funcionária.
 - **Banco de horas** — tolerância configurável sobre a carga contratual que absorve o défice estrutural (ver ADR-0003).
@@ -27,8 +27,8 @@ Glossário e linguagem partilhada do projeto. Usar **sempre** estes termos em c�
 
 ## Regras (IDs canónicos)
 
-**Hard:** H1 cobertura exata · H2 um turno/pessoa/dia · H3 descanso 11h · H4 M×N incompatíveis no mês · H5 FF/7 semanas · H6 FF/mês · H7 carga = contrato ± banco de horas · H8 fixas noite · H9 ≤6 dias consecutivos · H10 ausências respeitadas.
-**Soft:** S1 padrão MMMFTTT · S2 padrão NNNFF · S3 equidade fins de semana · S4 preferências · S5 evitar turnos isolados · S6 equidade de carga.
+**Hard:** H1 cobertura exata · H2 um turno/pessoa/dia · H3 descanso 11h · H4 M×N incompatíveis no mês · H5 FF a cada 7 semanas (só janelas completas) · H7 carga = contrato ± banco de horas · H8 fixas noite · H9 ≤6 dias consecutivos · H10 ausências respeitadas. *(H6 foi reclassificado para soft — ver S7; não reutilizar o ID.)*
+**Soft:** S1 padrão MMMFTTT · S2 padrão NNNFF · S3 equidade fins de semana · S4 preferências · S5 evitar turnos isolados · S6 equidade de carga · S7 FF 1×/mês (preferível, ex-H6) · S8 equidade do nº de FF entre pessoas (ADR-0006).
 
 Referir regras sempre pelo ID (ex.: "isto viola H3"), em código, mensagens de erro e issues.
 

@@ -273,12 +273,15 @@ function ParametersSection({ ruleConfigs }: { ruleConfigs: RuleConfigs }) {
                         </div>
 
                         <div className="grid gap-1.5">
-                            <Label>Exigir FF 1×/mês</Label>
+                            <Label>Preferir FF 1×/mês</Label>
                             <label className="flex items-center gap-2 text-sm">
                                 <Checkbox checked={data.ff_monthly} onCheckedChange={(v) => setData('ff_monthly', v === true)} />
-                                Obrigar pelo menos uma dupla folga por mês
+                                Dar preferência a uma dupla folga por mês
                             </label>
-                            <p className="text-muted-foreground text-xs">Independente da janela de semanas acima.</p>
+                            <p className="text-muted-foreground text-xs">
+                                Preferência (não obrigação) — o obrigatório é a janela de semanas acima. O gerador também equilibra o nº de FF entre
+                                funcionárias.
+                            </p>
                             <InputError message={errors.ff_monthly} />
                         </div>
                     </CardContent>
