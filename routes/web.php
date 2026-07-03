@@ -15,10 +15,9 @@ use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\VacationController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 })->name('home');
 
 // Aceitação de convite — pública, o token é o segredo (PRD F2)

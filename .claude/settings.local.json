@@ -115,7 +115,21 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/login)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/)",
       "Bash(sed -i '' 's#^APP_URL=http://localhost$#APP_URL=http://localhost:8000#' .env .env.example)",
-      "Bash(git commit -q -m 'Corrigir APP_URL sem porta \\(link de convite quebrado\\); redesenhar auth split-layout com marca; nova gestão de funcionárias sem acesso *)"
+      "Bash(git commit -q -m 'Corrigir APP_URL sem porta \\(link de convite quebrado\\); redesenhar auth split-layout com marca; nova gestão de funcionárias sem acesso *)",
+      "Bash(curl -s http://localhost:8000/login)",
+      "Bash(curl -s http://localhost:5173/resources/js/layouts/auth-layout.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/@vite/client)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql -d escalas_aad -t -c \"select count\\(*\\) from jobs;\")",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql -d escalas_aad -t -c \"select count\\(*\\) from failed_jobs;\")",
+      "Bash(sed -i '' 's/^QUEUE_CONNECTION=database/QUEUE_CONNECTION=sync/' .env .env.example)",
+      "Bash(/opt/homebrew/opt/postgresql@15/bin/psql -d escalas_aad -c \"truncate table jobs;\")",
+      "Bash(curl -s -o /dev/null -w \"solver health: %{http_code}\\\\n\" http://localhost:8001/health)",
+      "Bash(php artisan tinker '--execute= *)",
+      "Bash(mkdir -p ~/.config/psysh)",
+      "Bash(chmod 700 ~/.config/psysh)",
+      "Read(//Users/t/.config/**)",
+      "Bash(php -r ' *)",
+      "Bash(php -i)"
     ],
     "defaultMode": "bypassPermissions"
   }

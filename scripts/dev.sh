@@ -25,7 +25,8 @@ trap 'kill 0' EXIT INT TERM
 (cd solver && uv run uvicorn app.main:app --reload --port 8001) &
 npm run dev &
 php artisan serve --port 8000 &
-php artisan queue:listen --tries=1 &
+# QUEUE_CONNECTION=sync em dev (.env) — jobs (gerar escala, emails) correm
+# na hora, sem precisar de um worker à parte. Nada a arrancar aqui.
 
 echo
 echo "▶ web:    http://localhost:8000"
