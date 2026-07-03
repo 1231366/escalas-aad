@@ -105,17 +105,19 @@ class SwapController extends Controller
 
     public function index(Request $request): Response
     {
-        $employee = $this->employeeOrAbort($request);
+        // Nullable de propósito (ex.: admins sem perfil de funcionária associado
+        // podem ter este item na navegação) — mostra listas vazias em vez de 403.
+        $employee = $request->user()->employee;
 
         $withRelations = ['requester', 'target', 'requesterAssignment.shiftType', 'targetAssignment.shiftType'];
 
-        $sent = SwapRequest::query()
+        $sent = $employee === null ? collect() : SwapRequest::query()
             ->where('requester_employee_id', $employee->id)
             ->with($withRelations)
             ->latest()
             ->get();
 
-        $received = SwapRequest::query()
+        $received = $employee === null ? collect() : SwapRequest::query()
             ->where('target_employee_id', $employee->id)
             ->with($withRelations)
             ->latest()

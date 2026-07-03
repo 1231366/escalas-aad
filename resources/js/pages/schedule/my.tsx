@@ -1,7 +1,8 @@
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type ScheduleDate, type ScheduleEmployeeRow, type ScheduleMeta, type ShiftType } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { ArrowLeftRight } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'A minha escala', href: '/escala' }];
 
@@ -15,8 +16,11 @@ interface Props {
 
 const monthLabel = (dateStr: string) => new Date(dateStr).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 export default function MySchedule({ schedule, shift_types, dates, employees }: Props) {
     const shiftByCode = Object.fromEntries(shift_types.map((s) => [s.code, s]));
+    const todayStr = today();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -78,9 +82,10 @@ export default function MySchedule({ schedule, shift_types, dates, employees }: 
                                         </td>
                                         {employee.cells.map((cell) => {
                                             const shiftType = cell.shift_code ? shiftByCode[cell.shift_code] : null;
+                                            const canSwap = employee.is_self && shiftType && cell.assignment_id && cell.date >= todayStr;
 
                                             return (
-                                                <td key={cell.date} className="p-1 text-center">
+                                                <td key={cell.date} className="group relative p-1 text-center">
                                                     {shiftType ? (
                                                         <span
                                                             className={`block rounded py-1 text-xs font-semibold text-white ${
@@ -94,6 +99,15 @@ export default function MySchedule({ schedule, shift_types, dates, employees }: 
                                                         <span className="text-muted-foreground bg-muted/40 block rounded py-1 text-xs">
                                                             {cell.is_day_off ? 'F' : ''}
                                                         </span>
+                                                    )}
+                                                    {canSwap && (
+                                                        <Link
+                                                            href={route('swaps.create', cell.assignment_id as number)}
+                                                            title="Trocar este turno"
+                                                            className="bg-background text-foreground absolute inset-0 m-auto hidden size-5 items-center justify-center rounded-full border shadow group-hover:flex"
+                                                        >
+                                                            <ArrowLeftRight className="size-3" />
+                                                        </Link>
                                                     )}
                                                 </td>
                                             );

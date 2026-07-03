@@ -58,14 +58,14 @@ class ScheduleGridBuilder
                 $assignment = $employeeAssignments->get($date->toDateString());
 
                 if ($assignment === null) {
-                    $cells[] = ['date' => $date->toDateString(), 'shift_code' => null, 'shift_type_id' => null, 'is_day_off' => false];
+                    $cells[] = ['date' => $date->toDateString(), 'shift_code' => null, 'shift_type_id' => null, 'is_day_off' => false, 'assignment_id' => null];
 
                     continue;
                 }
 
                 if ($assignment->isDayOff()) {
                     $daysOff++;
-                    $cells[] = ['date' => $date->toDateString(), 'shift_code' => null, 'shift_type_id' => null, 'is_day_off' => true];
+                    $cells[] = ['date' => $date->toDateString(), 'shift_code' => null, 'shift_type_id' => null, 'is_day_off' => true, 'assignment_id' => $assignment->id];
 
                     continue;
                 }
@@ -81,6 +81,7 @@ class ScheduleGridBuilder
                     'shift_code' => $shiftType->code,
                     'shift_type_id' => $shiftType->id,
                     'is_day_off' => false,
+                    'assignment_id' => $assignment->id,
                 ];
             }
 

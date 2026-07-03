@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { CalendarDays, LayoutGrid, Palmtree, ScrollText, Settings2, UserCog, UserPlus, Users } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, LayoutGrid, Palmtree, ScrollText, Settings2, UserCog, UserPlus, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -16,6 +16,11 @@ const mainNavItems: NavItem[] = [
         title: 'Escala',
         url: '/escala',
         icon: CalendarDays,
+    },
+    {
+        title: 'Trocas',
+        url: '/trocas',
+        icon: ArrowLeftRight,
     },
     {
         title: 'Férias',

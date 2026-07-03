@@ -7,12 +7,14 @@ use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\RuleSettingsController;
 use App\Http\Controllers\Admin\ScheduleController as AdminScheduleController;
 use App\Http\Controllers\Admin\ScheduleExportController;
+use App\Http\Controllers\Admin\SwapController as AdminSwapController;
 use App\Http\Controllers\Admin\VacationController as AdminVacationController;
 use App\Http\Controllers\CalendarFeedController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvitationAcceptanceController;
 use App\Http\Controllers\MyScheduleController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SwapController;
 use App\Http\Controllers\VacationController;
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +46,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('ferias', [VacationController::class, 'index'])->name('vacations.index');
     Route::post('ferias', [VacationController::class, 'store'])->name('vacations.store');
     Route::post('ferias/{vacationRequest}/cancelar', [VacationController::class, 'cancel'])->name('vacations.cancel');
+
+    // Trocas entre funcionárias — ver candidatas antes de pedir (PRD F5, ADR-0002).
+    Route::get('trocas', [SwapController::class, 'index'])->name('swaps.index');
+    Route::get('trocas/nova/{assignment}', [SwapController::class, 'create'])->name('swaps.create');
+    Route::post('trocas', [SwapController::class, 'store'])->name('swaps.store');
+    Route::post('trocas/{swapRequest}/aceitar', [SwapController::class, 'accept'])->name('swaps.accept');
+    Route::post('trocas/{swapRequest}/recusar', [SwapController::class, 'decline'])->name('swaps.decline');
+    Route::post('trocas/{swapRequest}/cancelar', [SwapController::class, 'cancel'])->name('swaps.cancel');
 });
 
 // Portal de administração
@@ -89,6 +99,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('ausencias', [AbsenceController::class, 'store'])->name('absences.store');
     Route::delete('ausencias/{absence}', [AbsenceController::class, 'destroy'])->name('absences.destroy');
     Route::post('ausencias/{absence}/reotimizar', [AbsenceController::class, 'reoptimize'])->name('absences.reoptimize');
+
+    // Supervisão de trocas — o admin só aprova quando a organização o exige (PRD F5).
+    Route::get('trocas', [AdminSwapController::class, 'index'])->name('swaps.index');
+    Route::post('trocas/{swapRequest}/aprovar', [AdminSwapController::class, 'approve'])->name('swaps.approve');
+    Route::post('trocas/{swapRequest}/rejeitar', [AdminSwapController::class, 'reject'])->name('swaps.reject');
 });
 
 // Feed iCal privado por funcionária — público, o token é o segredo (PRD F9)

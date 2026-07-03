@@ -122,6 +122,7 @@ export interface ScheduleCell {
     shift_code: string | null;
     shift_type_id: number | null;
     is_day_off: boolean;
+    assignment_id: number | null;
 }
 
 export interface ScheduleEmployeeRow {

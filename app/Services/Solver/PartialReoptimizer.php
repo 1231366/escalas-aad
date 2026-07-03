@@ -161,8 +161,8 @@ class PartialReoptimizer
 
         return ShiftAssignment::query()
             ->where('schedule_id', $schedule->id)
-            ->where('date', '>=', $from->toDateString())
-            ->where('date', '<', $cutoff->toDateString())
+            ->whereDate('date', '>=', $from->toDateString())
+            ->whereDate('date', '<', $cutoff->toDateString())
             ->with(['shiftType' => fn ($query) => $query->withoutGlobalScopes()])
             ->get()
             ->map(fn (ShiftAssignment $assignment) => [

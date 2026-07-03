@@ -42,7 +42,8 @@ class AbsenceGapCalculator
         $employeeAssignments = ShiftAssignment::query()
             ->where('schedule_id', $schedule->id)
             ->where('employee_id', $absence->employee_id)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('date', '>=', $from->toDateString())
+            ->whereDate('date', '<=', $to->toDateString())
             ->whereNotNull('shift_type_id')
             ->with('shiftType')
             ->get();
@@ -58,7 +59,8 @@ class AbsenceGapCalculator
         $countsByDateAndShift = ShiftAssignment::query()
             ->where('schedule_id', $schedule->id)
             ->whereNotNull('shift_type_id')
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('date', '>=', $from->toDateString())
+            ->whereDate('date', '<=', $to->toDateString())
             ->get()
             ->groupBy(fn (ShiftAssignment $a) => $a->date->toDateString().'|'.$a->shift_type_id)
             ->map->count();

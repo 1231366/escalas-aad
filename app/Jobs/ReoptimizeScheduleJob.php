@@ -89,7 +89,7 @@ class ReoptimizeScheduleJob implements ShouldQueue
             // apagam nem se substituem pelo que o solver devolver para elas.
             $preserved = ShiftAssignment::query()
                 ->where('schedule_id', $schedule->id)
-                ->where('date', '>=', $cutoff->toDateString())
+                ->whereDate('date', '>=', $cutoff->toDateString())
                 ->where('origin', AssignmentOrigin::Vacation->value)
                 ->get()
                 ->map(fn (ShiftAssignment $assignment) => $assignment->employee_id.'|'.$assignment->date->toDateString())
@@ -97,7 +97,7 @@ class ReoptimizeScheduleJob implements ShouldQueue
 
             ShiftAssignment::query()
                 ->where('schedule_id', $schedule->id)
-                ->where('date', '>=', $cutoff->toDateString())
+                ->whereDate('date', '>=', $cutoff->toDateString())
                 ->where('origin', '!=', AssignmentOrigin::Vacation->value)
                 ->delete();
 

@@ -129,7 +129,21 @@
       "Bash(chmod 700 ~/.config/psysh)",
       "Read(//Users/t/.config/**)",
       "Bash(php -r ' *)",
-      "Bash(php -i)"
+      "Bash(php -i)",
+      "Bash(git restore *)",
+      "Bash(git commit -q -m 'Corrigir fila presa \\(gerar escala não funcionava\\) e remover página inicial genérica *)",
+      "Bash(lsof -iTCP:8000 -sTCP:LISTEN -P)",
+      "Bash(lsof -iTCP:8001 -sTCP:LISTEN -P)",
+      "Bash(lsof -iTCP:5173 -sTCP:LISTEN -P)",
+      "Bash(lsof -iTCP:80 -sTCP:LISTEN -P)",
+      "Bash(nohup php artisan serve --port 8000)",
+      "Bash(disown)",
+      "Bash(curl -s -o /dev/null -w \"localhost:8000 -> %{http_code}\\\\n\" http://localhost:8000/login)",
+      "Bash(date -j -f \"%Y-%m-%d\" \"2026-09-07\" \"+%A\")",
+      "Bash(python3 -c \"import datetime; print\\(datetime.date\\(2026,9,7\\).strftime\\('%A'\\)\\)\")",
+      "Bash(sed -i '' 's/->where\\('\\\\''date'\\\\'', '\\\\''>='\\\\'', $cutoff->toDateString\\(\\)\\)/->whereDate\\('\\\\''date'\\\\'', '\\\\''>='\\\\'', $cutoff->toDateString\\(\\)\\)/g' app/Jobs/ReoptimizeScheduleJob.php)",
+      "Bash(sed -i '' 's/->where\\('\\\\''date'\\\\'', '\\\\''>='\\\\'', $from->toDateString\\(\\)\\)/->whereDate\\('\\\\''date'\\\\'', '\\\\''>='\\\\'', $from->toDateString\\(\\)\\)/g; s/->where\\('\\\\''date'\\\\'', '\\\\''<'\\\\'', $cutoff->toDateString\\(\\)\\)/->whereDate\\('\\\\''date'\\\\'', '\\\\''<'\\\\'', $cutoff->toDateString\\(\\)\\)/g' app/Services/Solver/PartialReoptimizer.php)",
+      "Bash(git commit -q -m 'Fase 3: trocas entre funcionárias completas + ausências validadas com testes *)"
     ],
     "defaultMode": "bypassPermissions"
   }
