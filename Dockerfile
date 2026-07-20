@@ -22,6 +22,11 @@ FROM dunglas/frankenphp:1-php8.4 AS runtime
 
 RUN install-php-extensions pdo_pgsql pgsql intl zip gd opcache bcmath pcntl
 
+# Render bloqueia binários com Linux capabilities (cap_net_bind_service do
+# frankenphp, para bind a portas <1024) mesmo a correr como root — não
+# precisamos dela porque o $PORT do Render nunca é privilegiado.
+RUN setcap -r /usr/local/bin/frankenphp
+
 ENV SERVER_NAME=":${PORT:-8080}"
 ENV OCTANE_DISABLED=1
 
