@@ -33,6 +33,10 @@ COPY --from=assets /app/public/build ./public/build
 RUN php artisan storage:link || true \
     && chown -R www-data:www-data storage bootstrap/cache
 
+# bootstrap/cache/packages.php não pode vir do dev local (referencia pacotes
+# require-dev como o Pail, ausentes aqui por causa do --no-dev acima).
+RUN php artisan package:discover --ansi
+
 # Migrations correm no arranque; config/route/view cache para performance.
 COPY <<'EOF' /usr/local/bin/start.sh
 #!/bin/sh
