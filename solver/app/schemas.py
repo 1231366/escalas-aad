@@ -69,8 +69,9 @@ class Assignment(BaseModel):
 class SolverParams(BaseModel):
     """Parâmetros de execução do CP-SAT (não fazem parte das regras de negócio)."""
 
-    max_time_in_seconds: float = 55.0
+    max_time_in_seconds: float = 20.0
     num_search_workers: int = 8
+    relative_gap_limit: float = 0.02
 
 
 class GenerateRequest(BaseModel):

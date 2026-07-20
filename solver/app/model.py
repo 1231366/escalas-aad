@@ -514,6 +514,9 @@ def solve_schedule(request: GenerateRequest) -> GenerateResponse:
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = params.max_time_in_seconds
     solver.parameters.num_search_workers = params.num_search_workers
+    # Sem isto o CP-SAT gasta sempre o tempo todo tentando provar otimalidade
+    # do objetivo soft, mesmo já tendo uma solução muito boa em <1s.
+    solver.parameters.relative_gap_limit = params.relative_gap_limit
 
     status = solver.Solve(model)
 
