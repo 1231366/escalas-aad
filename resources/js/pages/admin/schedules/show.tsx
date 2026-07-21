@@ -20,8 +20,8 @@ import {
     type SolverViolation,
 } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Archive, RefreshCw, Rocket } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, Archive, Loader2, RefreshCw, Rocket } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface Props {
     schedule: ScheduleMeta;
@@ -46,6 +46,50 @@ const infeasibleTitle: Record<string, string> = {
     UNAVAILABLE: 'O solver está indisponível',
 };
 
+const generatingMessages = [
+    'A verificar cobertura por turno…',
+    'A testar padrões M/T/N…',
+    'A equilibrar folgas entre a equipa…',
+    'A validar 11h de descanso entre turnos…',
+    'A afinar equidade de fins de semana…',
+    'Quase lá…',
+];
+
+function GeneratingOverlay({ colors }: { colors: string[] }) {
+    const [msgIndex, setMsgIndex] = useState(0);
+    const palette = colors.length > 0 ? colors : ['#6366f1', '#22c55e', '#f59e0b'];
+
+    useEffect(() => {
+        const id = setInterval(() => setMsgIndex((i) => (i + 1) % generatingMessages.length), 1800);
+        return () => clearInterval(id);
+    }, []);
+
+    return (
+        <div className="bg-background/85 absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 rounded-xl backdrop-blur-sm">
+            <div className="flex items-end gap-1.5">
+                {Array.from({ length: 9 }).map((_, i) => (
+                    <span
+                        key={i}
+                        className="block w-3 animate-bounce rounded-sm"
+                        style={{
+                            height: `${14 + ((i * 7) % 22)}px`,
+                            backgroundColor: palette[i % palette.length],
+                            animationDelay: `${i * 90}ms`,
+                            animationDuration: '900ms',
+                        }}
+                    />
+                ))}
+            </div>
+            <div className="flex items-center gap-2">
+                <Loader2 className="text-muted-foreground size-4 animate-spin" />
+                <p key={msgIndex} className="text-muted-foreground animate-in fade-in text-sm font-medium duration-300">
+                    {generatingMessages[msgIndex]}
+                </p>
+            </div>
+        </div>
+    );
+}
+
 export default function ScheduleShow({ schedule, shift_types, dates, employees, day_footers, cell_violations, cell_error }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Escalas', href: '/admin/escalas' },
@@ -53,6 +97,7 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
     ];
 
     const [pendingCell, setPendingCell] = useState<string | null>(null);
+    const [generating, setGenerating] = useState(false);
 
     const shiftByCode = Object.fromEntries(shift_types.map((s) => [s.code, s]));
     const employeeNameById = Object.fromEntries(employees.map((e) => [e.employee_id, e.name]));
@@ -60,7 +105,16 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
     const isInfeasible = !!stats && stats.status !== 'FEASIBLE';
     const isDraft = schedule.status === 'DRAFT';
 
-    const generate = () => router.post(`/admin/escalas/${schedule.id}/gerar`, {}, { preserveScroll: true });
+    const generate = () =>
+        router.post(
+            `/admin/escalas/${schedule.id}/gerar`,
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => setGenerating(true),
+                onFinish: () => setGenerating(false),
+            },
+        );
     const publish = () => router.post(`/admin/escalas/${schedule.id}/publicar`, {}, { preserveScroll: true });
     const archive = () => router.post(`/admin/escalas/${schedule.id}/arquivar`, {}, { preserveScroll: true });
 
@@ -94,10 +148,11 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                         {schedule.status === 'DRAFT' && (
                             <>
                                 <Badge>Rascunho</Badge>
-                                <Button variant="outline" size="sm" onClick={generate}>
-                                    <RefreshCw className="size-4" /> Gerar
+                                <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
+                                    <RefreshCw className={`size-4 ${generating ? 'animate-spin' : ''}`} />
+                                    {generating ? 'A gerar…' : 'Gerar'}
                                 </Button>
-                                <Button size="sm" onClick={publish} disabled={stats?.status !== 'FEASIBLE'}>
+                                <Button size="sm" onClick={publish} disabled={generating || stats?.status !== 'FEASIBLE'}>
                                     <Rocket className="size-4" /> Publicar
                                 </Button>
                             </>
@@ -169,7 +224,8 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                     </Alert>
                 )}
 
-                <div className="overflow-x-auto rounded-xl border">
+                <div className="relative overflow-x-auto rounded-xl border">
+                    {generating && <GeneratingOverlay colors={shift_types.map((s) => s.color)} />}
                     <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr>
