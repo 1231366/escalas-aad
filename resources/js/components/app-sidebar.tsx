@@ -51,6 +51,11 @@ const adminNavItems: NavItem[] = [
         icon: CalendarDays,
     },
     {
+        title: 'Trocas (aprovar)',
+        url: '/admin/trocas',
+        icon: ArrowLeftRight,
+    },
+    {
         title: 'Férias (aprovar)',
         url: '/admin/ferias',
         icon: Palmtree,
@@ -67,9 +72,15 @@ const adminNavItems: NavItem[] = [
     },
 ];
 
+// Autogestão de Trocas/Férias — o admin não tem perfil de funcionária, só
+// vê e decide os pedidos em "Trocas (aprovar)"/"Férias (aprovar)".
+const selfServiceOnlyTitles = ['Trocas', 'Férias'];
+
 export function AppSidebar() {
     const { auth } = usePage<SharedData>().props;
-    const navItems = auth.isAdmin ? [...mainNavItems, ...adminNavItems] : mainNavItems;
+    const navItems = auth.isAdmin
+        ? [...mainNavItems.filter((item) => !selfServiceOnlyTitles.includes(item.title)), ...adminNavItems]
+        : mainNavItems;
 
     return (
         <Sidebar collapsible="icon" variant="inset">

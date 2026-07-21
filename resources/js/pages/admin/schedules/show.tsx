@@ -20,7 +20,7 @@ import {
     type SolverViolation,
 } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Archive, Loader2, RefreshCw, Rocket } from 'lucide-react';
+import { AlertTriangle, Archive, FileSpreadsheet, FileText, Loader2, RefreshCw, RotateCcw, Rocket } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -118,6 +118,18 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
     const publish = () => router.post(`/admin/escalas/${schedule.id}/publicar`, {}, { preserveScroll: true });
     const archive = () => router.post(`/admin/escalas/${schedule.id}/arquivar`, {}, { preserveScroll: true });
 
+    const revertToDraft = () => {
+        if (
+            !confirm(
+                'Repor esta escala em rascunho? Vais poder gerar e publicar de novo para a substituir — a equipa é renotificada quando publicares outra vez, e trocas pendentes sobre os turnos atuais são canceladas.',
+            )
+        ) {
+            return;
+        }
+
+        router.post(`/admin/escalas/${schedule.id}/repor-rascunho`, {}, { preserveScroll: true });
+    };
+
     const updateCell = (employeeId: number, date: string, shiftTypeId: number | null) => {
         const cellKey = `${employeeId}|${date}`;
 
@@ -160,12 +172,30 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                         {schedule.status === 'PUBLISHED' && (
                             <>
                                 <Badge variant="secondary">Publicada</Badge>
+                                <Button variant="outline" size="sm" onClick={revertToDraft}>
+                                    <RotateCcw className="size-4" /> Repor rascunho
+                                </Button>
                                 <Button variant="outline" size="sm" onClick={archive}>
                                     <Archive className="size-4" /> Arquivar
                                 </Button>
                             </>
                         )}
                         {schedule.status === 'ARCHIVED' && <Badge variant="outline">Arquivada</Badge>}
+
+                        {schedule.generated_at && (
+                            <>
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={`/admin/escalas/${schedule.id}/excel`}>
+                                        <FileSpreadsheet className="size-4" /> Excel
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={`/admin/escalas/${schedule.id}/pdf`}>
+                                        <FileText className="size-4" /> PDF
+                                    </a>
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
 

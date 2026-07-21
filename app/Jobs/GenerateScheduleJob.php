@@ -3,9 +3,11 @@
 namespace App\Jobs;
 
 use App\Enums\AssignmentOrigin;
+use App\Enums\VacationStatus;
 use App\Models\Schedule;
 use App\Models\ShiftAssignment;
 use App\Models\ShiftType;
+use App\Models\VacationRequest;
 use App\Services\Solver\SolverClient;
 use App\Services\Solver\SolverUnavailableException;
 use Illuminate\Bus\Queueable;
@@ -94,6 +96,27 @@ class GenerateScheduleJob implements ShouldQueue
             if ($rows !== []) {
                 ShiftAssignment::query()->insert($rows);
             }
+
+            // Férias já aprovadas para o período não passam pelo solver (que
+            // não as vê como ausência) — reaplicamos a folga por cima do que
+            // acabou de ser gerado, tal como Admin\VacationController::approve()
+            // faz para uma escala já publicada. Cobre o caso de regenerar uma
+            // escala que substitui uma publicação anterior (ver
+            // ScheduleController::revertToDraft).
+            VacationRequest::query()
+                ->withoutGlobalScopes()
+                ->where('status', VacationStatus::Approved)
+                ->where('start_date', '<=', $schedule->period_end)
+                ->where('end_date', '>=', $schedule->period_start)
+                ->get()
+                ->each(function (VacationRequest $vacation) use ($schedule) {
+                    ShiftAssignment::query()
+                        ->where('schedule_id', $schedule->id)
+                        ->where('employee_id', $vacation->employee_id)
+                        ->whereDate('date', '>=', $vacation->start_date)
+                        ->whereDate('date', '<=', $vacation->end_date)
+                        ->update(['shift_type_id' => null, 'origin' => AssignmentOrigin::Vacation]);
+                });
 
             $schedule->forceFill([
                 'solver_stats' => [

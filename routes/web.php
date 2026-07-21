@@ -75,6 +75,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::put('regras/turnos/{shiftType}', [RuleSettingsController::class, 'updateShiftType'])->name('rules.shift-types.update');
 
     Route::get('escalas/{schedule}/excel', [ScheduleExportController::class, 'download'])->name('schedules.export');
+    Route::get('escalas/{schedule}/pdf', [ScheduleExportController::class, 'downloadPdf'])->name('schedules.export-pdf');
 
     // Geração/publicação da escala mensal via solver (PRD F4, ADR-0002).
     Route::get('escalas', [AdminScheduleController::class, 'index'])->name('schedules.index');
@@ -83,6 +84,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('escalas/{schedule}/gerar', [AdminScheduleController::class, 'regenerate'])->name('schedules.regenerate');
     Route::post('escalas/{schedule}/publicar', [AdminScheduleController::class, 'publish'])->name('schedules.publish');
     Route::post('escalas/{schedule}/arquivar', [AdminScheduleController::class, 'archive'])->name('schedules.archive');
+    Route::post('escalas/{schedule}/repor-rascunho', [AdminScheduleController::class, 'revertToDraft'])->name('schedules.revert-to-draft');
     // Edição manual de uma célula da grelha com revalidação síncrona pelo solver (issue #12, ADR-0002).
     Route::patch('escalas/{schedule}/celula', [AdminScheduleController::class, 'updateCell'])->name('schedules.cell.update');
 

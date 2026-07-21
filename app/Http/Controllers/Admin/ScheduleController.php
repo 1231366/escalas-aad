@@ -144,6 +144,26 @@ class ScheduleController extends Controller
     }
 
     /**
+     * Repõe uma escala Publicada em rascunho para poder gerar e publicar de
+     * novo (substituir). As trocas pendentes sobre os turnos atuais caem em
+     * cascata quando a geração seguinte apagar/substituir os ShiftAssignment
+     * (FK cascadeOnDelete) — é o comportamento esperado ao substituir a escala.
+     */
+    public function revertToDraft(Schedule $schedule): RedirectResponse
+    {
+        abort_unless($schedule->isPublished(), 400, 'Só é possível repor em rascunho uma escala publicada.');
+
+        $schedule->forceFill([
+            'status' => ScheduleStatus::Draft,
+            'published_at' => null,
+        ])->save();
+
+        AuditLog::record('schedule.reverted_to_draft', $schedule);
+
+        return back()->with('success', 'Escala reposta em rascunho. Gera e publica de novo para a substituir — a equipa é renotificada ao publicar.');
+    }
+
+    /**
      * Edição manual de uma célula da grelha (issue #12). Monta a escala
      * hipotética completa (todas as atribuições atuais + a alteração) e pede
      * ao solver para a revalidar (ADR-0002) antes de persistir — nunca
