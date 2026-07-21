@@ -70,6 +70,26 @@ class ScheduleController extends Controller
         return redirect()->route('admin.schedules.show', $schedule)->with('success', 'Escala criada. A gerar…');
     }
 
+    /**
+     * Apaga a escala definitivamente, seja qual for o estado (rascunho,
+     * publicada ou arquivada). Os turnos, trocas e votos ligados caem em
+     * cascata (FK); ausências que apontavam para esta escala só perdem a
+     * referência (nullOnDelete), não são apagadas.
+     */
+    public function destroy(Schedule $schedule): RedirectResponse
+    {
+        AuditLog::record('schedule.deleted', null, [
+            'schedule_id' => $schedule->id,
+            'period_start' => $schedule->period_start->toDateString(),
+            'period_end' => $schedule->period_end->toDateString(),
+            'status' => $schedule->status->value,
+        ]);
+
+        $schedule->delete();
+
+        return redirect()->route('admin.schedules.index')->with('success', 'Escala apagada.');
+    }
+
     public function show(Schedule $schedule, ScheduleGridBuilder $grid): Response
     {
         $dates = $grid->dates($schedule);

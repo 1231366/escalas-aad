@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type ScheduleSummary } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Escalas', href: '/admin/escalas' }];
@@ -135,9 +135,27 @@ export default function SchedulesIndex({ schedules }: { schedules: ScheduleSumma
                                         {schedule.published_at ? new Date(schedule.published_at).toLocaleString('pt-PT') : '—'}
                                     </td>
                                     <td className="p-3 text-right">
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={`/admin/escalas/${schedule.id}`}>Ver escala</Link>
-                                        </Button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link href={`/admin/escalas/${schedule.id}`}>Ver escala</Link>
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                title="Apagar"
+                                                onClick={() => {
+                                                    if (
+                                                        confirm(
+                                                            `Apagar a escala de ${schedule.label} definitivamente? Isto remove todos os turnos${schedule.status === 'PUBLISHED' ? ' — a equipa perde o acesso a esta escala' : ''}. Não pode ser desfeito.`,
+                                                        )
+                                                    ) {
+                                                        router.delete(`/admin/escalas/${schedule.id}`);
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 className="size-4 text-red-500" />
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

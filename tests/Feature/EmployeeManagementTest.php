@@ -66,13 +66,14 @@ test('admin can delete a no-access employee', function () {
     expect(Employee::find($employee->id))->toBeNull();
 });
 
-test('an employee with an account cannot be deleted', function () {
+test('deleting an employee with an account also deletes the account', function () {
     $user = User::factory()->inOrganization($this->org)->create();
     $employee = Employee::factory()->for($this->org)->create(['user_id' => $user->id]);
 
-    $this->actingAs($this->admin)->delete("/admin/funcionarios/{$employee->id}")->assertStatus(400);
+    $this->actingAs($this->admin)->delete("/admin/funcionarios/{$employee->id}")->assertRedirect();
 
-    expect(Employee::find($employee->id))->not->toBeNull();
+    expect(Employee::find($employee->id))->toBeNull()
+        ->and(User::find($user->id))->toBeNull();
 });
 
 test('non-admin cannot manage employees', function () {

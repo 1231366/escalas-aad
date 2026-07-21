@@ -20,7 +20,7 @@ import {
     type SolverViolation,
 } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Archive, FileSpreadsheet, FileText, Loader2, RefreshCw, RotateCcw, Rocket } from 'lucide-react';
+import { AlertTriangle, Archive, FileSpreadsheet, FileText, Loader2, RefreshCw, RotateCcw, Rocket, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -130,6 +130,19 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
         router.post(`/admin/escalas/${schedule.id}/repor-rascunho`, {}, { preserveScroll: true });
     };
 
+    const destroySchedule = () => {
+        const warning =
+            schedule.status === 'PUBLISHED'
+                ? 'Apagar esta escala definitivamente? A equipa perde o acesso a ela. Não pode ser desfeito.'
+                : 'Apagar esta escala definitivamente? Não pode ser desfeito.';
+
+        if (!confirm(warning)) {
+            return;
+        }
+
+        router.delete(`/admin/escalas/${schedule.id}`);
+    };
+
     const updateCell = (employeeId: number, date: string, shiftTypeId: number | null) => {
         const cellKey = `${employeeId}|${date}`;
 
@@ -196,6 +209,10 @@ export default function ScheduleShow({ schedule, shift_types, dates, employees, 
                                 </Button>
                             </>
                         )}
+
+                        <Button variant="ghost" size="sm" title="Apagar escala" onClick={destroySchedule}>
+                            <Trash2 className="size-4 text-red-500" />
+                        </Button>
                     </div>
                 </div>
 

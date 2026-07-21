@@ -213,20 +213,22 @@ export default function EmployeesIndex({ employees }: { employees: EmployeeRow[]
                                             <Button variant="ghost" size="sm" title="Editar" onClick={() => openEdit(employee)}>
                                                 <Pencil className="size-4" />
                                             </Button>
-                                            {!employee.has_account && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    title="Remover"
-                                                    onClick={() => {
-                                                        if (confirm(`Remover ${employee.name}?`)) {
-                                                            router.delete(`/admin/funcionarios/${employee.id}`, { preserveScroll: true });
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 className="size-4 text-red-500" />
-                                                </Button>
-                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                title="Remover"
+                                                onClick={() => {
+                                                    const warning = employee.has_account
+                                                        ? `Remover ${employee.name} definitivamente? Isto apaga também o acesso à conta (${employee.email}) e todo o histórico de turnos, férias e trocas. Não pode ser desfeito.`
+                                                        : `Remover ${employee.name} definitivamente? Isto apaga o histórico de turnos, férias e trocas. Não pode ser desfeito.`;
+
+                                                    if (confirm(warning)) {
+                                                        router.delete(`/admin/funcionarios/${employee.id}`, { preserveScroll: true });
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 className="size-4 text-red-500" />
+                                            </Button>
                                         </div>
                                     </td>
                                 </tr>

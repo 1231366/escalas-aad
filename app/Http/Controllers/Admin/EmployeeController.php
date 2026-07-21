@@ -7,7 +7,9 @@ use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\AuditLog;
 use App\Models\Employee;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,13 +66,27 @@ class EmployeeController extends Controller
         return back()->with('success', 'Perfil atualizado.');
     }
 
+    /**
+     * Remove a funcionária definitivamente — turnos, férias e trocas caem em
+     * cascata (FK). Se tiver conta de acesso, a conta (User) é apagada
+     * também, para não ficar login órfão sem perfil de funcionária.
+     */
     public function destroy(Employee $employee): RedirectResponse
     {
-        abort_if($employee->user_id !== null, 400, 'Não é possível remover uma funcionária com conta — desativa-a em vez disso.');
+        $employee->loadMissing('user');
+        $hadAccount = $employee->user_id !== null;
+        $user = $employee->user;
 
-        AuditLog::record('employee.deleted', $employee, ['name' => $employee->name]);
-        $employee->delete();
+        try {
+            DB::transaction(function () use ($employee, $user) {
+                AuditLog::record('employee.deleted', $employee, ['name' => $employee->name]);
+                $employee->delete();
+                $user?->delete();
+            });
+        } catch (QueryException) {
+            return back()->with('error', 'Não foi possível remover: há outros registos associados a esta conta (ex.: escalas geradas ou pedidos decididos por ela).');
+        }
 
-        return back()->with('success', 'Funcionária removida.');
+        return back()->with('success', $hadAccount ? 'Funcionária e respetiva conta de acesso removidas.' : 'Funcionária removida.');
     }
 }

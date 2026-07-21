@@ -152,6 +152,48 @@ test('publishing a draft schedule transitions state, fires the event and audits'
     expect(AuditLog::where('action', 'schedule.published')->where('subject_id', $schedule->id)->exists())->toBeTrue();
 });
 
+test('reverting a published schedule to draft clears published_at and allows regenerating', function () {
+    $schedule = Schedule::factory()->for($this->org)->create([
+        'status' => ScheduleStatus::Published,
+        'published_at' => now(),
+    ]);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/escalas/{$schedule->id}/repor-rascunho")
+        ->assertRedirect();
+
+    $schedule->refresh();
+
+    expect($schedule->status)->toBe(ScheduleStatus::Draft)
+        ->and($schedule->published_at)->toBeNull();
+
+    expect(AuditLog::where('action', 'schedule.reverted_to_draft')->where('subject_id', $schedule->id)->exists())->toBeTrue();
+});
+
+test('reverting a draft schedule to draft is rejected', function () {
+    $schedule = Schedule::factory()->for($this->org)->create(['status' => ScheduleStatus::Draft]);
+
+    $this->actingAs($this->admin)
+        ->post("/admin/escalas/{$schedule->id}/repor-rascunho")
+        ->assertStatus(400);
+});
+
+test('admin can delete a schedule regardless of status, cascading its assignments', function () {
+    $schedule = Schedule::factory()->for($this->org)->create(['status' => ScheduleStatus::Published]);
+    $employee = Employee::factory()->for($this->org)->create();
+
+    ShiftAssignment::factory()->for($schedule)->for($employee)->create();
+
+    expect(ShiftAssignment::where('schedule_id', $schedule->id)->count())->toBe(1);
+
+    $this->actingAs($this->admin)
+        ->delete("/admin/escalas/{$schedule->id}")
+        ->assertRedirect('/admin/escalas');
+
+    expect(Schedule::find($schedule->id))->toBeNull()
+        ->and(ShiftAssignment::where('schedule_id', $schedule->id)->count())->toBe(0);
+});
+
 test('employee cannot access admin schedule routes', function () {
     $employee = User::factory()->inOrganization($this->org)->create();
 

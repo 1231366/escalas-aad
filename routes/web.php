@@ -85,6 +85,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('escalas/{schedule}/publicar', [AdminScheduleController::class, 'publish'])->name('schedules.publish');
     Route::post('escalas/{schedule}/arquivar', [AdminScheduleController::class, 'archive'])->name('schedules.archive');
     Route::post('escalas/{schedule}/repor-rascunho', [AdminScheduleController::class, 'revertToDraft'])->name('schedules.revert-to-draft');
+    Route::delete('escalas/{schedule}', [AdminScheduleController::class, 'destroy'])->name('schedules.destroy');
     // Edição manual de uma célula da grelha com revalidação síncrona pelo solver (issue #12, ADR-0002).
     Route::patch('escalas/{schedule}/celula', [AdminScheduleController::class, 'updateCell'])->name('schedules.cell.update');
 
