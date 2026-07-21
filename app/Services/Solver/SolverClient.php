@@ -29,6 +29,8 @@ class SolverClient
 
     private const INITIAL_STATE_DAYS = 7;
 
+    private const MAX_ATTEMPTS = 5;
+
     public function generate(Schedule $schedule): array
     {
         return $this->post('/generate', $this->buildPayload($schedule));
@@ -122,22 +124,50 @@ class SolverClient
             ->all();
     }
 
+    /**
+     * O solver corre no plano gratuito do Render, que o adormece ao fim de
+     * ~15 min sem pedidos — o próximo pedido acorda-o mas o Render devolve
+     * 502/503/504 durante os segundos em que o container ainda está a
+     * arrancar. Em vez de rebentar logo com esse erro transitório, tentamos
+     * de novo com pausas crescentes até o solver acordar de vez.
+     */
     private function post(string $path, array $payload): array
     {
-        try {
-            $response = Http::baseUrl(config('services.solver.url'))
-                ->timeout(90)
-                ->acceptJson()
-                ->post($path, $payload);
-        } catch (Throwable $e) {
-            throw new SolverUnavailableException("Solver indisponível ({$path}): {$e->getMessage()}", previous: $e);
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            try {
+                $response = Http::baseUrl(config('services.solver.url'))
+                    ->timeout(90)
+                    ->acceptJson()
+                    ->post($path, $payload);
+            } catch (Throwable $e) {
+                if ($attempt === self::MAX_ATTEMPTS) {
+                    throw new SolverUnavailableException("Solver indisponível ({$path}): {$e->getMessage()}", previous: $e);
+                }
+
+                $this->sleepBeforeRetry($attempt);
+
+                continue;
+            }
+
+            if (in_array($response->status(), [502, 503, 504], true) && $attempt < self::MAX_ATTEMPTS) {
+                $this->sleepBeforeRetry($attempt);
+
+                continue;
+            }
+
+            if ($response->failed()) {
+                throw new SolverUnavailableException("Solver devolveu erro {$response->status()} em {$path}: {$response->body()}");
+            }
+
+            return $response->json() ?? [];
         }
 
-        if ($response->failed()) {
-            throw new SolverUnavailableException("Solver devolveu erro {$response->status()} em {$path}: {$response->body()}");
-        }
+        throw new SolverUnavailableException("Solver indisponível ({$path}) após ".self::MAX_ATTEMPTS.' tentativas.');
+    }
 
-        return $response->json() ?? [];
+    private function sleepBeforeRetry(int $attempt): void
+    {
+        usleep(min($attempt * 3_000_000, 15_000_000));
     }
 
     /**
